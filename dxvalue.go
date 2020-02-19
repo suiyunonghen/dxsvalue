@@ -152,6 +152,10 @@ func (v *DxValue)SetInt(value int64)  {
 	}
 }
 
+func (v *DxValue)String()string  {
+	return v.AsString()
+}
+
 func (v *DxValue)AsString()string  {
 	switch v.DataType {
 	case VT_Int:
@@ -172,6 +176,8 @@ func (v *DxValue)AsString()string  {
 	case VT_RawString:
 		v.DataType = VT_String
 		v.fstrvalue = DxCommonLib.ParserEscapeStr(DxCommonLib.FastString2Byte(v.fstrvalue))
+	case VT_Object,VT_Array:
+		return DxCommonLib.FastByte2String(Value2Json(v,nil))
 	}
 	return ""
 }
@@ -184,7 +190,7 @@ func (v *DxValue)SetString(value string)  {
 }
 
 func (v *DxValue)SetKeyString(Name,value string)  {
-	v.NewValue(Name,VT_String).fstrvalue = value
+	v.SetKey(Name,VT_String).fstrvalue = value
 }
 
 func (v *DxValue)SetIndexString(idx int,value string)  {
@@ -192,7 +198,7 @@ func (v *DxValue)SetIndexString(idx int,value string)  {
 }
 
 func (v *DxValue)SetKeyInt(Name string,value int64)  {
-	v.NewValue(Name,VT_Int).SetInt(value)
+	v.SetKey(Name,VT_Int).SetInt(value)
 }
 
 func (v *DxValue)SetIndexInt(idx int,value int64)  {
@@ -200,7 +206,7 @@ func (v *DxValue)SetIndexInt(idx int,value int64)  {
 }
 
 func (v *DxValue)SetKeyFloat(Name string,value float64)  {
-	v.NewValue(Name,VT_Float).SetFloat(value)
+	v.SetKey(Name,VT_Float).SetFloat(value)
 }
 
 func (v *DxValue)SetIndexFloat(idx int,value float64)  {
@@ -208,7 +214,7 @@ func (v *DxValue)SetIndexFloat(idx int,value float64)  {
 }
 
 func (v *DxValue)SetKeyBool(Name string,value bool)  {
-	v.NewValue(Name,VT_Bool).SetBool(value)
+	v.SetKey(Name,VT_Bool).SetBool(value)
 }
 
 func (v *DxValue)SetIndexBool(idx int,value bool)  {
@@ -216,7 +222,7 @@ func (v *DxValue)SetIndexBool(idx int,value bool)  {
 }
 
 func (v *DxValue)SetKeyTime(Name string,value time.Time)  {
-	v.NewValue(Name,VT_DateTime).SetFloat(float64(DxCommonLib.Time2DelphiTime(&value)))
+	v.SetKey(Name,VT_DateTime).SetFloat(float64(DxCommonLib.Time2DelphiTime(&value)))
 }
 
 func (v *DxValue)SetIndexTime(idx int,value time.Time)  {
@@ -383,7 +389,7 @@ func (v *DxValue)GoTimeByPath(DefaultValue time.Time, paths ...string)time.Time 
 	return result.AsGoTime()
 }
 
-func (v *DxValue)NewValue(Name string,tp ValueType)*DxValue  {
+func (v *DxValue)SetKey(Name string,tp ValueType)*DxValue  {
 	if v.DataType == VT_Array{
 		idx := DxCommonLib.StrToIntDef(Name,-1)
 		if idx != -1{

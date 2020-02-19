@@ -444,10 +444,6 @@ func skipWB(b []byte) (r []byte,skiplen int) {
 	if len(b) == 0 || b[0] > 0x20 {
 		return b,0
 	}
-	return skipWBSlow(b)
-}
-
-func skipWBSlow(b []byte) (r []byte,skiplen int) {
 	if len(b) == 0 || b[0] != 0x20 && b[0] != 0x0A && b[0] != 0x09 && b[0] != 0x0D {
 		return b,0
 	}

@@ -25,7 +25,7 @@ func TestParseJsonValue(t *testing.T) {
 	fmt.Println(v.StringByPath("","Result"))
 	fmt.Println(v.StringByPath("","arr","0","gg"))
 	v.SetKeyString("Parent","测试Parent")
-	chld := v.NewValue("Childs",VT_Object)
+	chld := v.SetKey("Childs",VT_Object)
 	chld.SetKeyString("Name","TestName")
 	chld.SetKeyInt("Age",3)
 	fmt.Println(v.StringByPath("","Childs","Name"))
@@ -33,4 +33,22 @@ func TestParseJsonValue(t *testing.T) {
 	fmt.Println(string(Value2Json(v,nil)))
 	FreeValue(v)
 
+}
+
+func TestNewValue(t *testing.T) {
+	v := NewValue(VT_Object)
+	v.SetKeyString("Name","不得闲")
+	v.SetKeyInt("Age",36)
+	v.SetKeyFloat("Weight",23.5)
+	arrv := v.SetKey("Children",VT_Array)
+	child := arrv.SetIndex(0,VT_Object)
+	child.SetKeyString("Name","Child1")
+	child.SetKeyString("Sex","boy")
+	child.SetKeyInt("Age",3)
+
+	child = arrv.SetIndex(1,VT_Object)
+	child.SetKeyString("Name","Child2")
+	child.SetKeyString("Sex","girl")
+	child.SetKeyInt("Age",3)
+	fmt.Println(string(Value2Json(v,nil)))
 }

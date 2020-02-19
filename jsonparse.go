@@ -344,6 +344,7 @@ func FreeValue(v *DxValue)  {
 	c := v.ownercache
 	v.ownercache = nil
 	if c!=nil{
+		c.Value = c.Value[:0]
 		cachePool.Put(c)
 	}
 }

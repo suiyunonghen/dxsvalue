@@ -54,10 +54,11 @@
 >了cache，之后可以使用FreeValue对Value进行回收，此时使用的Value都是cache中的对象结构，用法：
 ```go
     str := `{"Result":0,"Name":"不得闲","Age":36,"Weight":167.3,"arr":[ {"gg":23},23 ]}`
-	v,err := NewValueFromJson([]byte(str),true)
+	v,err := dxsvalue.NewValueFromJson([]byte(str),true)
 	if err != nil{
 		fmt.Println("发生错误：",err)
 	}
+    defer dxsvalue.FreeValue(v)
 ```
 
 3、获取值

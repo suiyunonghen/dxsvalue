@@ -2,6 +2,7 @@ package dxsvalue
 
 import (
 	"fmt"
+	"io/ioutil"
 	"testing"
 )
 
@@ -26,14 +27,6 @@ func TestDxValue_ForcePath(t *testing.T) {
 	v2 := v1.Clone(false)
 	fmt.Println(v2.String())
 	return
-	/*var v DxValue
-	v.SetInt(20)
-	fmt.Println(v.AsString())
-	v.ForcePath(VT_String,"Famaly","Father","Name").SetString("dxsoft")
-	fmt.Println(v.String())
-	fmt.Println(v.StringByPath("","Famaly","Father","Name"))
-	v.ForcePath(VT_True,"Famaly","Father","ISMen").SetBool(true)
-	fmt.Println(v.String())*/
 }
 
 func TestParseJsonValue(t *testing.T) {
@@ -71,4 +64,15 @@ func TestNewValue(t *testing.T) {
 	child.SetKeyString("Sex","girl")
 	child.SetKeyInt("Age",3)
 	fmt.Println(string(Value2Json(v,true,nil)))
+}
+
+func TestNewValueFromMsgPack(t *testing.T) {
+	b,_ := ioutil.ReadFile(`DataProxy.config.msgPack`)
+	v,err := NewValueFromMsgPack(b,false)
+	if err != nil{
+		fmt.Println(err)
+		return
+	}
+	fmt.Print(v.String())
+
 }

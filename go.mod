@@ -1,4 +1,4 @@
-module github.com/suiyunonghen/dxfastvalue
+module github.com/suiyunonghen/dxsvalue
 
 go 1.13
 

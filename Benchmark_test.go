@@ -1,6 +1,7 @@
 package dxsvalue
 
 import (
+	"bytes"
 	"encoding/json"
 	jsoniter "github.com/json-iterator/go"
 	dvalue "github.com/suiyunonghen/DxValue"
@@ -31,6 +32,7 @@ func BenchmarkJsonParse(b *testing.B) {
 			rc := dvalue.NewRecord()
 			for pb.Next() {
 				rc.JsonParserFromByte(buf,false,false)
+				rc.Bytes(false)
 			}
 		})
 	})
@@ -39,7 +41,7 @@ func BenchmarkJsonParse(b *testing.B) {
 		b.SetBytes(int64(len(buf)))
 		b.RunParallel(func(pb *testing.PB) {
 			for pb.Next() {
-				v,_ := NewValueFromJson(buf,true)
+				v,_ := NewValueFromJson(buf,false)
 				Value2Json(v,false,nil)
 			}
 		})
@@ -57,3 +59,30 @@ func BenchmarkJsonParse(b *testing.B) {
 	})
 }
 
+func BenchmarkMsgPackParse(b *testing.B) {
+	buf, err := ioutil.ReadFile("DataProxy.config.msgPack")
+	if err != nil {
+		return
+	}
+	b.Run("DxRecord", func(b *testing.B) {
+		b.ReportAllocs()
+		b.SetBytes(int64(len(buf)))
+		b.RunParallel(func(pb *testing.PB) {
+			rc := dvalue.NewRecord()
+			r := bytes.NewReader(buf)
+			for pb.Next() {
+				r.Reset(buf)
+				rc.LoadMsgPackReader(r)
+			}
+		})
+	})
+	b.Run("DxValue", func(b *testing.B) {
+		b.ReportAllocs()
+		b.SetBytes(int64(len(buf)))
+		b.RunParallel(func(pb *testing.PB) {
+			for pb.Next() {
+				NewValueFromMsgPack(buf,false)
+			}
+		})
+	})
+}

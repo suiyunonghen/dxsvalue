@@ -139,9 +139,10 @@ type	DxValue struct {
 	DataType	ValueType
 	fobject		VObject
 	ownercache	*cache
-	farr		[]*DxValue
 	simpleV		[8]byte
+	fbinary		[]byte		//二进制数据
 	fstrvalue	string
+	farr		[]*DxValue
 }
 
 func NewValue(tp ValueType)*DxValue  {
@@ -197,6 +198,7 @@ func (v *DxValue)Reset(dt ValueType)  {
 		v.farr = nil
 		v.fobject.strkvs = nil
 	}
+	v.fbinary = v.fbinary[:0]
 	v.fstrvalue = ""
 	DxCommonLib.ZeroByteSlice(v.simpleV[:])
 }
@@ -613,6 +615,39 @@ func (v *DxValue)SetKey(Name string,tp ValueType)*DxValue  {
 	kv.K = Name
 	kv.V = NewValue(tp)
 	return kv.V
+}
+
+func (v *DxValue)SetKeyValue(Name string,value *DxValue)  {
+	if v.DataType == VT_Array{
+		idx := DxCommonLib.StrToIntDef(Name,-1)
+		if idx != -1{
+			v.SetIndexValue(int(idx),value)
+			return
+		}
+	}
+	if v.DataType != VT_Object{
+		v.Reset(VT_Object)
+	}
+	idx := v.fobject.indexByName(Name)
+	if idx >= 0{
+		v.fobject.strkvs[idx].V = value
+	}else{
+		kv := v.fobject.getKv()
+		kv.K = Name
+		kv.V = value
+	}
+}
+
+func (v *DxValue)SetIndexValue(idx int,value *DxValue)  {
+	if v.DataType != VT_Array{
+		v.Reset(VT_Array)
+	}
+	l := len(v.farr)
+	if idx >= 0 && idx < l{
+		v.farr[idx] = value
+	}else{
+		v.farr = append(v.farr,value)
+	}
 }
 
 func (v *DxValue)SetIndex(idx int,tp ValueType)*DxValue  {

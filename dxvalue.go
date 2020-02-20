@@ -234,6 +234,7 @@ func (v *DxValue)clone(c *cache)*DxValue  {
 	case VT_String,VT_RawString:
 		rootv.fstrvalue = v.fstrvalue
 	case VT_Object:
+		rootv.fobject.keysUnescaped = v.fobject.keysUnescaped
 		for i := 0; i<len(v.fobject.strkvs);i++{
 			rkv := rootv.fobject.getKv()
 			rkv.K = v.fobject.strkvs[i].K

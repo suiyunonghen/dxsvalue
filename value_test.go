@@ -10,6 +10,7 @@ func TestDxValue_ForcePath(t *testing.T) {
 	//v.SetKeyBool("a",true)
 	v.ForcePath(VT_False,"a","b")
 	v.ForcePath(VT_String,"a","b","c").SetString("Asdfaf")
+
 	fmt.Println(v.String())
 
 	v.Reset(VT_Array)
@@ -20,6 +21,10 @@ func TestDxValue_ForcePath(t *testing.T) {
 	fmt.Println(v.String())
 	v.SetIndexString(3,"ASdf")
 	fmt.Println(v.String())
+	v1,_ := NewValueFromJson([]byte(`["asdfadf","234",{},"ASdf"]`),false)
+	fmt.Println("结果 ",v1.String())
+	v2 := v1.Clone(false)
+	fmt.Println(v2.String())
 	return
 	/*var v DxValue
 	v.SetInt(20)

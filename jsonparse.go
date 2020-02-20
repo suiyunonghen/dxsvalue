@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/suiyunonghen/DxCommonLib"
 	"strconv"
-	"sync"
 )
 
 type JsonErrType	uint8
@@ -57,7 +56,7 @@ func (err *ErrorParseJson)Error()string  {
 
 //解析从fastjson中的代码修改
 //如果成功，tail中返回的是剩下的字节内容，否则发生错误的话，tail中返回的是当前正在解析的数据
-func parseObject(b []byte,c *cache)(result *DxValue,tail []byte,err error)  {
+func parseJsonObj(b []byte,c *cache)(result *DxValue,tail []byte,err error)  {
 	oldb := b
 	b,skiplen := skipWB(b)
 	if len(b) == 0{
@@ -83,7 +82,7 @@ func parseObject(b []byte,c *cache)(result *DxValue,tail []byte,err error)  {
 				parseB:oldb,
 			}
 		}
-		kv.K, b, err = parseKey(b[1:],c!=nil)
+		kv.K, b, err = parseJsonKey(b[1:],c!=nil)
 		if err != nil{
 			result = nil
 			return
@@ -102,7 +101,7 @@ func parseObject(b []byte,c *cache)(result *DxValue,tail []byte,err error)  {
 		oldb = b
 		b,skiplen = skipWB(b[1:])
 		//解析Value
-		kv.V, b, err = parseValue(b,c)
+		kv.V, b, err = parseJsonValue(b,c)
 		if err != nil {
 			result = nil
 			return
@@ -134,7 +133,7 @@ func parseObject(b []byte,c *cache)(result *DxValue,tail []byte,err error)  {
 	}
 }
 
-func parseKey(b []byte,useCache bool) (key string, tail []byte, err error) {
+func parseJsonKey(b []byte,useCache bool) (key string, tail []byte, err error) {
 	l := len(b)
 	for i := 0; i < l; i++ {
 		if b[i] == '"' {
@@ -144,7 +143,7 @@ func parseKey(b []byte,useCache bool) (key string, tail []byte, err error) {
 			return string(b[:i]), b[i+1:], nil
 		}
 		if b[i] == '\\' { //有转义的
-			key,tail,err = parseRawString(b,useCache)
+			key,tail,err = parseJsonString(b,useCache)
 			if jpe,ok := err.(*ErrorParseJson);ok{
 				if jpe.Type == JET_NoStrEnd{
 					jpe.Type = JET_NoKeyEnd
@@ -158,7 +157,7 @@ func parseKey(b []byte,useCache bool) (key string, tail []byte, err error) {
 	}
 }
 
-func parseRawString(b []byte,useCache bool) (value string, tail []byte, err error) {
+func parseJsonString(b []byte,useCache bool) (value string, tail []byte, err error) {
 	n := bytes.IndexByte(b, '"')
 	if n < 0 {
 		return "", b, &ErrorParseJson{
@@ -203,7 +202,7 @@ func parseRawString(b []byte,useCache bool) (value string, tail []byte, err erro
 	}
 }
 
-func parseArray(b []byte,c *cache)(result *DxValue,tail []byte,err error)  {
+func parseJsonArray(b []byte,c *cache)(result *DxValue,tail []byte,err error)  {
 	oldb := b
 	b,skiplen := skipWB(b)
 	if len(b) == 0 {
@@ -222,7 +221,7 @@ func parseArray(b []byte,c *cache)(result *DxValue,tail []byte,err error)  {
 	for {
 		oldb = b
 		b,skiplen = skipWB(b)
-		v, b, err = parseValue(b,c)
+		v, b, err = parseJsonValue(b,c)
 		if err != nil {
 			return nil,b,err
 		}
@@ -267,48 +266,6 @@ var(
 	valueNull  = &DxValue{DataType: VT_NULL}
 )
 
-var(
-	cachePool	sync.Pool
-)
-
-type	cache struct {
-	fisroot	bool
-	Value	[]DxValue
-	cacheBuffer	[]byte
-}
-
-func (c *cache)getValue(t ValueType)*DxValue  {
-	if c == nil{
-		return NewValue(t)
-	}
-	if cap(c.Value) > len(c.Value) {
-		c.Value = c.Value[:len(c.Value)+1]
-	} else {
-		c.Value = append(c.Value, DxValue{})
-	}
-	result := &c.Value[len(c.Value)-1]
-	result.Reset(t)
-	if c.fisroot{
-		c.fisroot = false
-		result.ownercache = c
-	}
-	return result
-}
-
-func getCache()*cache  {
-	var c *cache
-	v := cachePool.Get()
-	if v == nil{
-		c = &cache{
-			fisroot:	true,
-			Value:    make([]DxValue,0,8),
-		}
-	}else{
-		c = v.(*cache)
-		c.fisroot = true
-	}
-	return c
-}
 
 func NewValueFromJson(b []byte,useCache bool)(*DxValue,error)  {
 	var c *cache
@@ -321,7 +278,7 @@ func NewValueFromJson(b []byte,useCache bool)(*DxValue,error)  {
 		b = c.cacheBuffer
 	}
 	b,skiplen := skipWB(b)
-	v, tail, err := parseValue(b,c)
+	v, tail, err := parseJsonValue(b,c)
 	if err != nil {
 		return nil, err
 	}
@@ -337,17 +294,7 @@ func NewValueFromJson(b []byte,useCache bool)(*DxValue,error)  {
 	return v,nil
 }
 
-//释放Value回收Cache
-func FreeValue(v *DxValue)  {
-	c := v.ownercache
-	v.ownercache = nil
-	if c!=nil{
-		c.Value = c.Value[:0]
-		cachePool.Put(c)
-	}
-}
-
-func parseValue(b []byte,c *cache)(result *DxValue,tail []byte,err error)  {
+func parseJsonValue(b []byte,c *cache)(result *DxValue,tail []byte,err error)  {
 	if len(b) == 0{
 		return nil,nil,&ErrorParseJson{
 			Type:         0,
@@ -356,13 +303,13 @@ func parseValue(b []byte,c *cache)(result *DxValue,tail []byte,err error)  {
 		}
 	}
 	if b[0] == '{'{
-		return parseObject(b[1:],c)
+		return parseJsonObj(b[1:],c)
 	}
 	if b[0] == '[' {
-		return parseArray(b[1:],c)
+		return parseJsonArray(b[1:],c)
 	}
 	if b[0] == '"' {
-		ss, tail, err := parseRawString(b[1:],c!=nil)
+		ss, tail, err := parseJsonString(b[1:],c!=nil)
 		if err != nil {
 			return nil, tail, err
 		}
@@ -400,10 +347,10 @@ func parseValue(b []byte,c *cache)(result *DxValue,tail []byte,err error)  {
 		}
 		return valueNull, b[4:], nil
 	}
-	return parseNumber(b,c)
+	return parseJsonNum(b,c)
 }
 
-func parseNumber(b []byte,c *cache) (num *DxValue, tail []byte,err error) {
+func parseJsonNum(b []byte,c *cache) (num *DxValue, tail []byte,err error) {
 	isfloat := false
 	for i := 0; i < len(b); i++ {
 		ch := b[i]

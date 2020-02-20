@@ -5,15 +5,30 @@ import (
 	"testing"
 )
 
-func TestDxValue_AsInt(t *testing.T) {
-	var v DxValue
+func TestDxValue_ForcePath(t *testing.T) {
+	v := NewValue(VT_Object)
+	//v.SetKeyBool("a",true)
+	v.ForcePath(VT_False,"a","b")
+	v.ForcePath(VT_String,"a","b","c").SetString("Asdfaf")
+	fmt.Println(v.String())
+
+	v.Reset(VT_Array)
+	v.SetIndex(0,VT_String).SetString("asdfadf")
+	v.SetIndexString(1,"234")
+	v.SetIndex(2,VT_Object)
+	v.SetIndexBool(3,true)
+	fmt.Println(v.String())
+	v.SetIndexString(3,"ASdf")
+	fmt.Println(v.String())
+	return
+	/*var v DxValue
 	v.SetInt(20)
 	fmt.Println(v.AsString())
-	fmt.Println(v.AsInt())
-	v.SetString("不得闲")
-	fmt.Println(v.AsString())
-	fmt.Println(v.AsInt())
-
+	v.ForcePath(VT_String,"Famaly","Father","Name").SetString("dxsoft")
+	fmt.Println(v.String())
+	fmt.Println(v.StringByPath("","Famaly","Father","Name"))
+	v.ForcePath(VT_True,"Famaly","Father","ISMen").SetBool(true)
+	fmt.Println(v.String())*/
 }
 
 func TestParseJsonValue(t *testing.T) {
@@ -30,7 +45,7 @@ func TestParseJsonValue(t *testing.T) {
 	chld.SetKeyInt("Age",3)
 	fmt.Println(v.StringByPath("","Childs","Name"))
 	fmt.Println(v.StringByPath("","Parent"))
-	fmt.Println(string(Value2Json(v,nil)))
+	fmt.Println(string(Value2Json(v,true,nil)))
 	FreeValue(v)
 
 }
@@ -50,5 +65,5 @@ func TestNewValue(t *testing.T) {
 	child.SetKeyString("Name","Child2")
 	child.SetKeyString("Sex","girl")
 	child.SetKeyInt("Age",3)
-	fmt.Println(string(Value2Json(v,nil)))
+	fmt.Println(string(Value2Json(v,true,nil)))
 }

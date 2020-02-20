@@ -10,15 +10,18 @@ import (
 
 type  ValueType uint8
 const(
-	VT_NULL ValueType=iota
-	VT_Object
+	VT_Object ValueType=iota
 	VT_Array
 	VT_String
 	VT_RawString //未正常转义的字符串,Json解析之后是这样的
 	VT_Int
-	VT_Bool
 	VT_Float
 	VT_DateTime
+	VT_Binary		//二进制
+	VT_ExBinary		//MsgPack的扩展二进制
+	VT_NULL
+	VT_True
+	VT_False
 	VT_NAN
 	VT_INF
 )
@@ -42,6 +45,65 @@ func (obj *VObject)getKv()*strkv  {
 		obj.strkvs = append(obj.strkvs, strkv{})
 	}
 	return &obj.strkvs[len(obj.strkvs)-1]
+}
+
+func (obj *VObject)Remove(Name string)  {
+	if !obj.keysUnescaped && strings.IndexByte(Name, '\\') < 0 {
+		for i := 0;i<len(obj.strkvs);i++{
+			if obj.strkvs[i].K == Name{
+				obj.strkvs = append(obj.strkvs[:i],obj.strkvs[i+1:]...)
+				return
+			}
+		}
+	}
+	//解转义
+	obj.UnEscapestrs()
+	for i := 0;i<len(obj.strkvs);i++{
+		if obj.strkvs[i].K == Name{
+			obj.strkvs = append(obj.strkvs[:i],obj.strkvs[i+1:]...)
+			return
+		}
+	}
+}
+
+func (obj *VObject)ExtractValue(Name string)*DxValue  {
+	if !obj.keysUnescaped && strings.IndexByte(Name, '\\') < 0 {
+		for i := 0;i<len(obj.strkvs);i++{
+			if obj.strkvs[i].K == Name{
+				result := obj.strkvs[i].V
+				obj.strkvs = append(obj.strkvs[:i],obj.strkvs[i+1:]...)
+				return result
+			}
+		}
+	}
+	//解转义
+	obj.UnEscapestrs()
+	for i := 0;i<len(obj.strkvs);i++{
+		if obj.strkvs[i].K == Name{
+			result := obj.strkvs[i].V
+			obj.strkvs = append(obj.strkvs[:i],obj.strkvs[i+1:]...)
+			return result
+		}
+	}
+	return nil
+}
+
+func (obj *VObject)indexByName(name string)int  {
+	if !obj.keysUnescaped && strings.IndexByte(name, '\\') < 0 {
+		for i := 0;i<len(obj.strkvs);i++{
+			if obj.strkvs[i].K == name{
+				return i
+			}
+		}
+	}
+	//解转义
+	obj.UnEscapestrs()
+	for i := 0;i<len(obj.strkvs);i++{
+		if obj.strkvs[i].K == name{
+			return i
+		}
+	}
+	return  -1
 }
 
 func (obj *VObject) ValueByName(name string) *DxValue {
@@ -83,12 +145,27 @@ type	DxValue struct {
 }
 
 func NewValue(tp ValueType)*DxValue  {
+	switch tp {
+	case VT_True:
+		return valueTrue
+	case VT_False:
+		return valueFalse
+	case VT_NULL:
+		return valueNull
+	case VT_INF:
+		return valueINF
+	case VT_NAN:
+		return valueNAN
+	}
 	result := &DxValue{}
 	result.Reset(tp)
 	return result
 }
 
 func (v *DxValue)Reset(dt ValueType)  {
+	if v == valueNAN || v == valueINF || v == valueTrue || v == valueFalse || v == valueNull{
+		return
+	}
 	v.fobject.keysUnescaped = false
 	if v.DataType != dt{
 		switch v.DataType {
@@ -130,7 +207,11 @@ func (v *DxValue)Type() ValueType {
 
 func (v *DxValue)AsInt()int64  {
 	switch v.DataType {
-	case VT_Int,VT_Bool:
+	case VT_True:
+		return 1
+	case VT_False:
+		return 0
+	case VT_Int:
 		return *((*int64)(unsafe.Pointer(&v.simpleV[0])))
 	case VT_Float,VT_DateTime:
 		return int64(*((*float64)(unsafe.Pointer(&v.simpleV[0]))))
@@ -138,6 +219,106 @@ func (v *DxValue)AsInt()int64  {
 		return DxCommonLib.StrToIntDef(v.fstrvalue,0)
 	}
 	return 0
+}
+
+func (v *DxValue)clone(c *cache)*DxValue  {
+	if v.DataType >= VT_True{ //系统固定的值不变更
+		return v
+	}
+	rootv := c.getValue(v.DataType)
+	if v.DataType >= VT_Int && v.DataType <= VT_DateTime{
+		copy(rootv.simpleV[:],v.simpleV[:])
+		return rootv
+	}
+	switch v.DataType {
+	case VT_String,VT_RawString:
+		rootv.fstrvalue = v.fstrvalue
+	case VT_Object:
+		for i := 0; i<len(v.fobject.strkvs);i++{
+			rkv := rootv.fobject.getKv()
+			rkv.K = v.fobject.strkvs[i].K
+			rkv.V = v.fobject.strkvs[i].V.clone(c)
+		}
+	case VT_Array:
+		for i := 0;i < len(v.farr);i++{
+			rootv.farr = append(rootv.farr, v.farr[i].clone(c))
+		}
+	}
+	return rootv
+}
+
+func (v *DxValue)Clone(usecache bool)*DxValue  {
+	var c *cache
+	if usecache{
+		c = getCache()
+	}else{
+		c = nil
+	}
+	return v.clone(c)
+}
+
+func (v *DxValue)RemoveKey(Name string)  {
+	if v.DataType == VT_Object{
+		v.fobject.Remove(Name)
+	}
+}
+
+func (v *DxValue)ExtractValue(Name string)*DxValue  {
+	if v.DataType == VT_Object{
+		return v.fobject.ExtractValue(Name)
+	}
+	return nil
+}
+
+func (v *DxValue)RemoveIndex(idx int)  {
+	if v.DataType == VT_Array && idx >= 0 && idx < len(v.farr){
+		v.farr = append(v.farr[:idx],v.farr[idx+1:]...)
+	}
+}
+
+func (v *DxValue)ForcePath(vt ValueType,paths ...string)*DxValue  {
+	curv := v
+	l := len(paths)
+	var llastv,lastv *DxValue
+	for i := 0;i<l - 1;i++{
+		key := paths[i]
+		if lastv != nil{
+			 llastv = lastv
+		}
+		lastv = curv
+		curv = curv.ValueByName(key)
+		if curv == nil || curv.DataType > VT_Array{
+			switch lastv.DataType {
+			case VT_Array:
+				if idx := DxCommonLib.StrToIntDef(key,-1);idx < 0{
+					lastv.Reset(VT_Object)
+					curv = lastv.SetKey(key,VT_Object)
+				}else{
+					curv = lastv.SetIndex(int(idx),VT_Object)
+				}
+			case VT_Object:
+				curv = lastv.SetKey(key,VT_Object)
+			default:
+				if lastv == valueNull || lastv == valueTrue || lastv == valueFalse || lastv == valueINF || lastv == valueNAN{
+					if llastv == nil{
+						v = NewValue(VT_Object)
+						lastv = nil
+						curv = v
+						continue
+					}else{
+						lastv = llastv.SetKey(paths[i-1],VT_Object)
+					}
+				}else{
+					lastv.Reset(VT_Object)
+				}
+				curv = lastv.SetKey(key,VT_Object)
+			}
+		}
+	}
+	if l > 0{
+		return curv.SetKey(paths[l-1],vt)
+	}
+	return curv
 }
 
 func (v *DxValue)SetInt(value int64)  {
@@ -160,11 +341,10 @@ func (v *DxValue)AsString()string  {
 	switch v.DataType {
 	case VT_Int:
 		return strconv.FormatInt(*((*int64)(unsafe.Pointer(&v.simpleV[0]))), 10)
-	case VT_Bool:
-		if *((*int64)(unsafe.Pointer(&v.simpleV[0]))) == 0{
-			return "false"
-		}
+	case VT_True:
 		return "true"
+	case VT_False:
+		return "false"
 	case VT_Float:
 		vf := *((*float64)(unsafe.Pointer(&v.simpleV[0])))
 		return strconv.FormatFloat(vf,'f',-1,64)
@@ -173,11 +353,13 @@ func (v *DxValue)AsString()string  {
 		return dt.ToTime().Format("2006-01-02 15:04:05")
 	case VT_String:
 		return v.fstrvalue
+	case VT_NULL:
+		return "null"
 	case VT_RawString:
 		v.DataType = VT_String
 		v.fstrvalue = DxCommonLib.ParserEscapeStr(DxCommonLib.FastString2Byte(v.fstrvalue))
 	case VT_Object,VT_Array:
-		return DxCommonLib.FastByte2String(Value2Json(v,nil))
+		return DxCommonLib.FastByte2String(Value2Json(v,false,nil))
 	}
 	return ""
 }
@@ -214,11 +396,19 @@ func (v *DxValue)SetIndexFloat(idx int,value float64)  {
 }
 
 func (v *DxValue)SetKeyBool(Name string,value bool)  {
-	v.SetKey(Name,VT_Bool).SetBool(value)
+	if value{
+		v.SetKey(Name,VT_True)
+	}else{
+		v.SetKey(Name,VT_False)
+	}
 }
 
 func (v *DxValue)SetIndexBool(idx int,value bool)  {
-	v.SetIndex(idx,VT_Bool).SetBool(value)
+	if value{
+		v.SetIndex(idx,VT_True)
+	}else{
+		v.SetIndex(idx,VT_False)
+	}
 }
 
 func (v *DxValue)SetKeyTime(Name string,value time.Time)  {
@@ -230,11 +420,12 @@ func (v *DxValue)SetIndexTime(idx int,value time.Time)  {
 }
 
 func (v *DxValue)AsBool()bool  {
-	switch v.DataType {
-	case VT_Int,VT_Bool:
+	if v.DataType >= VT_Int && v.DataType <= VT_DateTime{
 		return *((*int64)(unsafe.Pointer(&v.simpleV[0]))) > 0
-	case VT_Float,VT_DateTime:
-		return *((*float64)(unsafe.Pointer(&v.simpleV[0]))) > 0
+	}
+	switch v.DataType {
+	case VT_True:
+		return true
 	case VT_String,VT_RawString:
 		return strings.EqualFold(v.fstrvalue,"true")
 	}
@@ -242,7 +433,10 @@ func (v *DxValue)AsBool()bool  {
 }
 
 func (v *DxValue)SetBool(value bool)  {
-	if v.DataType > 3{
+	if v.DataType >= VT_True{
+		return
+	}
+	if v.DataType >= VT_Int{
 		if value{
 			*((*int64)(unsafe.Pointer(&v.simpleV[0]))) = 1
 		}else{
@@ -253,7 +447,11 @@ func (v *DxValue)SetBool(value bool)  {
 
 func (v *DxValue)AsFloat()float64  {
 	switch v.DataType {
-	case VT_Int,VT_Bool:
+	case VT_True:
+		return 1
+	case VT_False:
+		return 0
+	case VT_Int:
 		return float64(*((*int64)(unsafe.Pointer(&v.simpleV[0]))))
 	case VT_Float,VT_DateTime:
 		return *((*float64)(unsafe.Pointer(&v.simpleV[0])))
@@ -399,9 +597,15 @@ func (v *DxValue)SetKey(Name string,tp ValueType)*DxValue  {
 	if v.DataType != VT_Object{
 		v.Reset(VT_Object)
 	}
-	result := v.fobject.ValueByName(Name)
-	if result != nil{
-		result.Reset(tp)
+	idx := v.fobject.indexByName(Name)
+	if idx >= 0{
+		result := v.fobject.strkvs[idx].V
+		if result == valueTrue || result == valueFalse || result == valueINF || result == valueNAN || result == valueNull{
+			result = NewValue(tp)
+			v.fobject.strkvs[idx].V = result
+		}else{
+			result.Reset(tp)
+		}
 		return result
 	}
 	kv := v.fobject.getKv()
@@ -418,7 +622,12 @@ func (v *DxValue)SetIndex(idx int,tp ValueType)*DxValue  {
 	if idx >= 0 && idx < l{
 		result := v.farr[idx]
 		if result != nil && result.DataType != tp{
-			result.Reset(tp)
+			if result == valueTrue || result == valueNull || result == valueFalse || result == valueINF || result == valueNAN{
+				result = NewValue(tp)
+				v.farr[idx] = result
+			}else{
+				result.Reset(tp)
+			}
 		}else if result == nil{
 			result = NewValue(tp)
 			v.farr[idx] = result

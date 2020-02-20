@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/suiyunonghen/DxCommonLib"
 	"strconv"
-	"strings"
 	"sync"
 )
 
@@ -261,19 +260,12 @@ var(
 	nullbyte = []byte("null")
 	nanbyte = []byte("nan")
 	infbyte = []byte("inf")
-	valueTrue	*DxValue
-	valueFalse	*DxValue
+	valueTrue = &DxValue{DataType: VT_True}
+	valueFalse = &DxValue{DataType: VT_False}
 	valueNAN = &DxValue{DataType: VT_NAN}
 	valueINF = &DxValue{DataType: VT_INF}
 	valueNull  = &DxValue{DataType: VT_NULL}
 )
-
-func init()  {
-	valueTrue = NewValue(VT_Bool)
-	valueTrue.SetBool(true)
-	valueFalse = NewValue(VT_Bool)
-	valueFalse.SetBool(false)
-}
 
 var(
 	cachePool	sync.Pool
@@ -303,21 +295,27 @@ func (c *cache)getValue(t ValueType)*DxValue  {
 	return result
 }
 
+func getCache()*cache  {
+	var c *cache
+	v := cachePool.Get()
+	if v == nil{
+		c = &cache{
+			fisroot:	true,
+			Value:    make([]DxValue,0,8),
+		}
+	}else{
+		c = v.(*cache)
+		c.fisroot = true
+	}
+	return c
+}
+
 func NewValueFromJson(b []byte,useCache bool)(*DxValue,error)  {
 	var c *cache
 	if !useCache{
 		c = nil
 	}else{
-		v := cachePool.Get()
-		if v == nil{
-			c = &cache{
-				fisroot:	true,
-				Value:    make([]DxValue,0,8),
-			}
-		}else{
-			c = v.(*cache)
-			c.fisroot = true
-		}
+		c = getCache()
 		//缓存模式下，会公用这个cacheBuffer
 		c.cacheBuffer = append(c.cacheBuffer[:0],b...)
 		b = c.cacheBuffer
@@ -372,10 +370,10 @@ func parseValue(b []byte,c *cache)(result *DxValue,tail []byte,err error)  {
 		var result *DxValue
 		dt := DxCommonLib.ParserJsonTime(ss)
 		if dt < 0{
-			result = NewValue(VT_RawString)
+			result = c.getValue(VT_RawString)
 			result.fstrvalue = ss
 		}else{
-			result = NewValue(VT_DateTime)
+			result = c.getValue(VT_DateTime)
 			result.SetFloat(float64(dt))
 		}
 		return result, tail, nil
@@ -402,10 +400,10 @@ func parseValue(b []byte,c *cache)(result *DxValue,tail []byte,err error)  {
 		}
 		return valueNull, b[4:], nil
 	}
-	return parseNumber(b)
+	return parseNumber(b,c)
 }
 
-func parseNumber(b []byte) (num *DxValue, tail []byte,err error) {
+func parseNumber(b []byte,c *cache) (num *DxValue, tail []byte,err error) {
 	isfloat := false
 	for i := 0; i < len(b); i++ {
 		ch := b[i]
@@ -429,11 +427,11 @@ func parseNumber(b []byte) (num *DxValue, tail []byte,err error) {
 		b = b[i:]
 		if isfloat{
 			v := DxCommonLib.StrToFloatDef(DxCommonLib.FastByte2String(ns),0)
-			num = NewValue(VT_Float)
+			num = c.getValue(VT_Float)
 			num.SetFloat(v)
 		}else{
 			v := DxCommonLib.StrToIntDef(DxCommonLib.FastByte2String(ns),0)
-			num = NewValue(VT_Int)
+			num = c.getValue(VT_Int)
 			num.SetInt(v)
 		}
 		return num, b, nil
@@ -456,7 +454,8 @@ func skipWB(b []byte) (r []byte,skiplen int) {
 	return nil,0
 }
 
-func Value2Json(v *DxValue, dst []byte)[]byte  {
+
+func Value2Json(v *DxValue,escapestr bool, dst []byte)[]byte  {
 	if dst == nil{
 		dst = make([]byte,0,256)
 	}
@@ -469,18 +468,25 @@ func Value2Json(v *DxValue, dst []byte)[]byte  {
 			}else{
 				dst = append(dst,'"')
 			}
-			if v.fobject.keysUnescaped{
-				dst = DxCommonLib.EscapeJsonbyte(v.fobject.strkvs[i].K,dst)
+			if escapestr{
+				if v.fobject.keysUnescaped{
+					dst = DxCommonLib.EscapeJsonbyte(v.fobject.strkvs[i].K,dst)
+				}else{
+					dst = append(dst,v.fobject.strkvs[i].K...)
+				}
 			}else{
+				if !v.fobject.keysUnescaped{
+					v.fobject.UnEscapestrs()
+				}
 				dst = append(dst,v.fobject.strkvs[i].K...)
 			}
 			dst = append(dst,`":`...)
-			dst = Value2Json(v.fobject.strkvs[i].V,dst)
+			dst = Value2Json(v.fobject.strkvs[i].V,escapestr,dst)
 		}
 		dst = append(dst,'}')
 	case VT_String:
 		dst = append(dst,'"')
-		if strings.IndexByte(v.fstrvalue, '"') >= 0 || strings.IndexByte(v.fstrvalue, '\\') >= 0 {
+		if escapestr {
 			dst = DxCommonLib.EscapeJsonbyte(v.fstrvalue,dst)
 		}else{
 			dst = append(dst,DxCommonLib.FastString2Byte(v.fstrvalue)...)
@@ -493,7 +499,7 @@ func Value2Json(v *DxValue, dst []byte)[]byte  {
 				dst = append(dst, ',')
 			}
 			if v.farr[i] != nil{
-				dst = Value2Json(v.farr[i],dst)
+				dst = Value2Json(v.farr[i],escapestr,dst)
 			}else{
 				dst = append(dst,'n','u','l','l')
 			}
@@ -505,12 +511,10 @@ func Value2Json(v *DxValue, dst []byte)[]byte  {
 		dst = append(dst,'"')
 		dst = append(dst,DxCommonLib.FastString2Byte(v.fstrvalue)...)
 		dst = append(dst,'"')
-	case VT_Bool:
-		if v.AsBool(){
-			dst = append(dst,"true"...)
-		}else{
-			dst = append(dst,"false"...)
-		}
+	case VT_True:
+		dst = append(dst,"true"...)
+	case VT_False:
+		dst = append(dst,"false"...)
 	case VT_Int:
 		dst = strconv.AppendInt(dst,v.AsInt(),10)
 	case VT_DateTime:

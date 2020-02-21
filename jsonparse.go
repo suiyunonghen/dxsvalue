@@ -455,7 +455,7 @@ func Value2Json(v *DxValue,escapestr bool, dst []byte)[]byte  {
 		}
 		dst = append(dst, ']')
 	case VT_Float,VT_Double:
-		dst = strconv.AppendFloat(dst,v.AsDouble(),'f',-1,64)
+		dst = strconv.AppendFloat(dst,v.Double(),'f',-1,64)
 	case VT_RawString:
 		dst = append(dst,'"')
 		dst = append(dst,DxCommonLib.FastString2Byte(v.fstrvalue)...)
@@ -465,10 +465,10 @@ func Value2Json(v *DxValue,escapestr bool, dst []byte)[]byte  {
 	case VT_False:
 		dst = append(dst,"false"...)
 	case VT_Int:
-		dst = strconv.AppendInt(dst,v.AsInt(),10)
+		dst = strconv.AppendInt(dst,v.Int(),10)
 	case VT_DateTime:
 		dst = append(dst,"/Date("...)
-		unixs := int64((DxCommonLib.TDateTime)(v.AsFloat()).ToTime().Unix()*1000)
+		unixs := int64((DxCommonLib.TDateTime)(v.Float()).ToTime().Unix()*1000)
 		dst = strconv.AppendInt(dst,unixs,10)
 		dst = append(dst,")/"...)
 	case VT_NULL:

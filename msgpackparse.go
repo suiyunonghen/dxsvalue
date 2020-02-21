@@ -294,7 +294,7 @@ func Value2MsgPack(v *DxValue,dst []byte)[]byte  {
 			dst = Value2MsgPack(v.farr[i],dst)
 		}
 	case VT_DateTime:
-		t := v.AsGoTime()
+		t := v.GoTime()
 		secs := uint64(t.Unix())
 		if secs>>34 == 0 {
 			data := uint64(t.Nanosecond())<<34 | secs
@@ -336,13 +336,13 @@ func Value2MsgPack(v *DxValue,dst []byte)[]byte  {
 		dst = writeBinCode(blen,dst)
 		dst = append(dst,v.fbinary...)
 	case VT_Float:
-		u32 := math.Float32bits(v.AsFloat())
+		u32 := math.Float32bits(v.Float())
 		dst = append(dst,byte(CodeFloat),byte(u32 >> 24),byte(u32 >> 16),byte(u32 >> 8),byte(u32))
 	case VT_Double:
-		u64 := math.Float64bits(v.AsDouble())
+		u64 := math.Float64bits(v.Double())
 		dst = append(dst,byte(CodeDouble),byte(u64 >> 56),byte(u64 >> 48),byte(u64 >> 40),byte(u64 >> 32),byte(u64 >> 24),byte(u64 >> 16),byte(u64 >> 8),byte(u64))
 	case VT_Int:
-		dst = writeInt(v.AsInt(),dst)
+		dst = writeInt(v.Int(),dst)
 	case VT_String,VT_RawString:
 		l := len(v.fstrvalue)
 		dst = writeStrCode(l,dst)

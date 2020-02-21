@@ -208,7 +208,7 @@ func (v *DxValue)Type() ValueType {
 	return v.DataType
 }
 
-func (v *DxValue)AsInt()int64  {
+func (v *DxValue)Int()int64  {
 	switch v.DataType {
 	case VT_True:
 		return 1
@@ -340,10 +340,6 @@ func (v *DxValue)SetInt(value int64)  {
 }
 
 func (v *DxValue)String()string  {
-	return v.AsString()
-}
-
-func (v *DxValue)AsString()string  {
 	switch v.DataType {
 	case VT_Int:
 		return strconv.FormatInt(*((*int64)(unsafe.Pointer(&v.simpleV[0]))), 10)
@@ -372,6 +368,31 @@ func (v *DxValue)AsString()string  {
 	}
 	return ""
 }
+
+func (v *DxValue)AsString(Name string,Default string)string  {
+	return v.StringByPath(Default,Name)
+}
+
+func (v *DxValue)AsBool(Name string,def bool)bool  {
+	return v.BoolByPath(def,Name)
+}
+
+func (v *DxValue)AsInt(Name string,def int)int  {
+	return int(v.IntByPath(int64(def),Name))
+}
+
+func (v *DxValue)AsFloat(Name string,def float32)float32  {
+	return v.FloatByPath(def,Name)
+}
+
+func (v *DxValue)AsDoule(Name string,def float64)float64  {
+	return v.DoubleByPath(def,Name)
+}
+
+func (v *DxValue)AsDateTime(Name string,def DxCommonLib.TDateTime)DxCommonLib.TDateTime  {
+	return v.DateTimeByPath(def,Name)
+}
+
 
 func (v *DxValue)SetString(value string)  {
 	if v.DataType != VT_String{
@@ -436,7 +457,7 @@ func (v *DxValue)SetIndexTime(idx int,value time.Time)  {
 	v.SetIndex(idx,VT_DateTime).SetDouble(float64(DxCommonLib.Time2DelphiTime(&value)))
 }
 
-func (v *DxValue)AsBool()bool  {
+func (v *DxValue)Bool()bool  {
 	if v.DataType >= VT_Int && v.DataType <= VT_DateTime{
 		return *((*int64)(unsafe.Pointer(&v.simpleV[0]))) > 0
 	}
@@ -462,7 +483,7 @@ func (v *DxValue)SetBool(value bool)  {
 	}
 }
 
-func (v *DxValue)AsDouble()float64  {
+func (v *DxValue)Double()float64  {
 	switch v.DataType {
 	case VT_True:
 		return 1
@@ -480,7 +501,7 @@ func (v *DxValue)AsDouble()float64  {
 	return 0
 }
 
-func (v *DxValue)AsFloat()float32  {
+func (v *DxValue)Float()float32  {
 	switch v.DataType {
 	case VT_True:
 		return 1
@@ -499,10 +520,10 @@ func (v *DxValue)AsFloat()float32  {
 }
 
 
-func (v *DxValue)AsDateTime()DxCommonLib.TDateTime  {
+func (v *DxValue)DateTime()DxCommonLib.TDateTime  {
 	switch v.DataType {
 	case VT_Int,VT_Double,VT_Float,VT_DateTime:
-		return (DxCommonLib.TDateTime)(v.AsDouble())
+		return (DxCommonLib.TDateTime)(v.Double())
 	case VT_String,VT_RawString:
 		if t,err := time.Parse("2006-01-02T15:04:05Z",v.fstrvalue);err == nil{
 			return DxCommonLib.Time2DelphiTime(&t)
@@ -515,10 +536,10 @@ func (v *DxValue)AsDateTime()DxCommonLib.TDateTime  {
 	return -1
 }
 
-func (v *DxValue)AsGoTime()time.Time  {
+func (v *DxValue)GoTime()time.Time  {
 	switch v.DataType {
 	case VT_Int,VT_Float,VT_Double, VT_DateTime:
-		return (DxCommonLib.TDateTime)(v.AsDouble()).ToTime()
+		return (DxCommonLib.TDateTime)(v.Double()).ToTime()
 	case VT_String,VT_RawString:
 		if t,err := time.Parse("2006-01-02T15:04:05Z",v.fstrvalue);err == nil{
 			return t
@@ -543,13 +564,6 @@ func (v *DxValue)SetFloat(value float32)  {
 		v.Reset(VT_Float)
 	}
 	*((*float32)(unsafe.Pointer(&v.simpleV[0]))) = value
-}
-
-func (v *DxValue)AsObject()*VObject  {
-	if v.DataType == VT_Object{
-		return &v.fobject
-	}
-	return nil
 }
 
 func (v *DxValue)ValueByName(Name string)*DxValue  {
@@ -589,7 +603,7 @@ func (v *DxValue)StringByPath(DefaultValue string, paths ...string)string  {
 	if result == nil{
 		return DefaultValue
 	}
-	return result.AsString()
+	return result.String()
 }
 
 func (v *DxValue)BoolByPath(DefaultValue bool, paths ...string)bool  {
@@ -597,7 +611,7 @@ func (v *DxValue)BoolByPath(DefaultValue bool, paths ...string)bool  {
 	if result == nil{
 		return DefaultValue
 	}
-	return result.AsBool()
+	return result.Bool()
 }
 
 func (v *DxValue)IntByPath(DefaultValue int64, paths ...string)int64  {
@@ -605,7 +619,7 @@ func (v *DxValue)IntByPath(DefaultValue int64, paths ...string)int64  {
 	if result == nil{
 		return DefaultValue
 	}
-	return result.AsInt()
+	return result.Int()
 }
 
 func (v *DxValue)FloatByPath(DefaultValue float32, paths ...string)float32  {
@@ -613,7 +627,7 @@ func (v *DxValue)FloatByPath(DefaultValue float32, paths ...string)float32  {
 	if result == nil{
 		return DefaultValue
 	}
-	return result.AsFloat()
+	return result.Float()
 }
 
 func (v *DxValue)DoubleByPath(DefaultValue float64, paths ...string)float64  {
@@ -621,7 +635,7 @@ func (v *DxValue)DoubleByPath(DefaultValue float64, paths ...string)float64  {
 	if result == nil{
 		return DefaultValue
 	}
-	return result.AsDouble()
+	return result.Double()
 }
 
 func (v *DxValue)DateTimeByPath(DefaultValue DxCommonLib.TDateTime, paths ...string)DxCommonLib.TDateTime  {
@@ -629,7 +643,7 @@ func (v *DxValue)DateTimeByPath(DefaultValue DxCommonLib.TDateTime, paths ...str
 	if result == nil{
 		return DefaultValue
 	}
-	return result.AsDateTime()
+	return result.DateTime()
 }
 
 func (v *DxValue)GoTimeByPath(DefaultValue time.Time, paths ...string)time.Time  {
@@ -637,7 +651,7 @@ func (v *DxValue)GoTimeByPath(DefaultValue time.Time, paths ...string)time.Time 
 	if result == nil{
 		return DefaultValue
 	}
-	return result.AsGoTime()
+	return result.GoTime()
 }
 
 func (v *DxValue)SetKey(Name string,tp ValueType)*DxValue  {

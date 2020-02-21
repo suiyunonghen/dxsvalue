@@ -62,8 +62,9 @@
 ```
 
 3、获取值
-> DxValue可以使用AsString,AsInt,AsBool,AsFloat,AsDateTime,AsGoTime等来获取简单类型Value的相对
->应的数据值，相应的使用SetXXX函数来设置相应的数据值
+> DxValue可以使用String,Int,Bool,Float,DateTime,GoTime等来获取简单类型Value的相对
+>应的数据值，相应的使用SetXXX函数来设置相应的数据值,AsString,AsInt等可以用来获取相应的
+>key对应的值
 >
 >
 >获取某个节点的值，可以使用ValueByName()来查找到某个节点，然后相应的使用AsXXX等函数来获取，同时也可以

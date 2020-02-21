@@ -334,7 +334,7 @@ func parseJsonValue(b []byte,c *cache)(result *DxValue,tail []byte,err error)  {
 		return valueTrue, b[4:], nil
 	}
 	if b[0] == 'f' {
-		if len(b) < 5 || bytes.Compare(b[:4],falebyte) != 0 {
+		if len(b) < 5 || bytes.Compare(b[:5],falebyte) != 0 {
 			return nil, b,errors.New("无效的Json格式")
 		}
 		return valueFalse, b[5:], nil

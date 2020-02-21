@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/suiyunonghen/DxCommonLib"
+	"io/ioutil"
+	"os"
 	"strconv"
 )
 
@@ -473,4 +475,29 @@ func Value2Json(v *DxValue,escapestr bool, dst []byte)[]byte  {
 		dst = append(dst,'n','u','l','l')
 	}
 	return dst
+}
+
+func NewValueFromJsonFile(fileName string,usecache bool)(*DxValue,error)  {
+	databytes, err := ioutil.ReadFile(fileName)
+	if err != nil {
+		return nil,err
+	}
+	if len(databytes) > 2 && databytes[0] == 0xEF && databytes[1] == 0xBB && databytes[2] == 0xBF{//BOM
+		databytes = databytes[3:]
+	}
+	return NewValueFromJson(databytes,usecache)
+}
+
+func Value2File(v *DxValue, fileName string,BOMFile bool)error{
+	if file,err := os.OpenFile(fileName,os.O_CREATE | os.O_TRUNC,0644);err == nil{
+		defer file.Close()
+		if BOMFile{
+			file.Write([]byte{0xEF,0xBB,0xBF})
+		}
+		dst := Value2Json(v,false,nil)
+		_,err := file.Write(dst)
+		return err
+	}else{
+		return err
+	}
 }

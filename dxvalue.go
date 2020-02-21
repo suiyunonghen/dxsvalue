@@ -743,3 +743,53 @@ func (v *DxValue)InsertValue(idx int,tp ValueType)*DxValue  {
 	}
 	return result
 }
+
+func (v *DxValue)Count()int  {
+	switch v.DataType {
+	case VT_Object:
+		return len(v.fobject.strkvs)
+	case VT_Array:
+		return len(v.farr)
+	}
+	return 0
+}
+
+func (v *DxValue)ValueByIndex(idx int)*DxValue{
+	switch v.DataType {
+	case VT_Object:
+		if idx >= 0 && idx < len(v.fobject.strkvs){
+			return v.fobject.strkvs[idx].V
+		}
+	case VT_Array:
+		if idx >= 0 && idx < len(v.farr){
+			return v.farr[idx]
+		}
+	}
+	return nil
+}
+
+func (v *DxValue)KeyNameByIndex(idx int)string  {
+	if v.DataType == VT_Object{
+		if idx >= 0 && idx < len(v.fobject.strkvs){
+			return v.fobject.strkvs[idx].K
+		}
+	}
+	return ""
+}
+
+func (v *DxValue)Visit(f func(Key string,value *DxValue) bool)  {
+	switch v.DataType {
+	case VT_Object:
+		for i := 0;i<len(v.fobject.strkvs);i++{
+			if !f(v.fobject.strkvs[i].K,v.fobject.strkvs[i].V){
+				return
+			}
+		}
+	case VT_Array:
+		for i := 0;i<len(v.farr);i++{
+			if !f("",v.farr[i]){
+				return
+			}
+		}
+	}
+}

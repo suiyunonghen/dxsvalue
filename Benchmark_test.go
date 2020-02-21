@@ -70,9 +70,12 @@ func BenchmarkMsgPackParse(b *testing.B) {
 		b.RunParallel(func(pb *testing.PB) {
 			rc := dvalue.NewRecord()
 			r := bytes.NewReader(buf)
+			w := bytes.NewBuffer(make([]byte,0,1024))
 			for pb.Next() {
 				r.Reset(buf)
 				rc.LoadMsgPackReader(r)
+				//rc.SaveMsgPackFile()
+				dvalue.NewEncoder(w).EncodeRecord(rc)
 			}
 		})
 	})
@@ -81,7 +84,8 @@ func BenchmarkMsgPackParse(b *testing.B) {
 		b.SetBytes(int64(len(buf)))
 		b.RunParallel(func(pb *testing.PB) {
 			for pb.Next() {
-				NewValueFromMsgPack(buf,false)
+				v,_ := NewValueFromMsgPack(buf,false)
+				Value2MsgPack(v,nil)
 			}
 		})
 	})

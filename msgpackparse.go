@@ -19,7 +19,7 @@ var(
 )
 
 func readCode(b []byte)(MsgPackCode,[]byte,error)  {
-	if len(b) > 1{
+	if len(b) > 0{
 		return MsgPackCode(b[0]),b[1:],nil
 	}
 	return CodeUnkonw,nil,ErrUnKnownCode
@@ -104,79 +104,79 @@ func parseMsgPackValue(b []byte,c *cache)(result *DxValue,tail []byte,err error)
 	case code.IsFixedNum():
 		result = c.getValue(VT_Int)
 		result.SetInt(int64(int8(code)))
-		return
+		return result,b,nil
 	case code == CodeUint8:
-		ub,tail,err := parseUint8(b)
+		ub,b,err := parseUint8(b)
 		if err != nil{
 			return nil,tail,err
 		}
 		result = c.getValue(VT_Int)
 		result.SetInt(int64(ub))
-		return result,tail,nil
+		return result,b,nil
 	case code == CodeInt8:
-		ub,tail,err := parseUint8(b)
+		ub,b,err := parseUint8(b)
 		if err != nil{
-			return nil,tail,err
+			return nil,b,err
 		}
 		result = c.getValue(VT_Int)
 		result.SetInt(int64(int8(ub)))
-		return result,tail,nil
+		return result,b,nil
 	case code == CodeUint16:
-		u16,tail,err := parseUint16(b)
+		u16,b,err := parseUint16(b)
 		if err != nil{
-			return nil,tail,err
+			return nil,b,err
 		}
 		result = c.getValue(VT_Int)
 		result.SetInt(int64(u16))
-		return result,tail,nil
+		return result,b,nil
 	case code == CodeInt16:
-		u16,tail,err := parseUint16(b)
+		u16,b,err := parseUint16(b)
 		if err != nil{
-			return nil,tail,err
+			return nil,b,err
 		}
 		result = c.getValue(VT_Int)
 		result.SetInt(int64(int16(u16)))
-		return result,tail,nil
+		return result,b,nil
 	case code == CodeUint32:
-		u32,tail,err := parseUint32(b)
+		u32,b,err := parseUint32(b)
 		if err != nil{
 			return nil,tail,err
 		}
 		result = c.getValue(VT_Int)
 		result.SetInt(int64(u32))
-		return result,tail,nil
+		return result,b,nil
 	case code == CodeInt32:
-		u32,tail,err := parseUint32(b)
+		u32,b,err := parseUint32(b)
 		if err != nil{
-			return nil,tail,err
+			return nil,b,err
 		}
 		result = c.getValue(VT_Int)
 		result.SetInt(int64(int32(u32)))
-		return result,tail,nil
+		return result,b,nil
 	case code == CodeInt64 || code == CodeUint64:
-		u64,tail,err := parseUint64(b)
+		u64,b,err := parseUint64(b)
 		if err != nil{
-			return nil,tail,err
+			return nil,b,err
 		}
 		result = c.getValue(VT_Int)
 		result.SetInt(int64(u64))
-		return result,tail,nil
+		return result,b,nil
 	case code == CodeFloat:
-		u32,tail,err := parseUint32(b)
+		u32,b,err := parseUint32(b)
 		if err != nil{
-			return nil,tail,err
+			return nil,b,err
 		}
 		result = c.getValue(VT_Float)
 		result.SetFloat(*(*float32)(unsafe.Pointer(&u32)))
-		return result,tail,nil
+		return result,b,nil
 	case code == CodeDouble:
-		u64,tail,err := parseUint64(b)
+		u64,b,err := parseUint64(b)
 		if err != nil{
-			return nil,tail,err
+			return nil,b,err
 		}
 		result = c.getValue(VT_Double)
 		result.SetDouble(*(*float64)(unsafe.Pointer(&u64)))
-		return result,tail,nil
+		return result,b,nil
 	case code == CodeTrue:
 		result = valueTrue
 		tail = b
@@ -191,9 +191,9 @@ func parseMsgPackValue(b []byte,c *cache)(result *DxValue,tail []byte,err error)
 		return
 	case code.IsBin():
 		//二进制
-		blen,tail,err := parseLen(code,b)
+		blen,b,err := parseLen(code,b)
 		if err != nil{
-			return nil,tail,err
+			return nil,b,err
 		}
 		haslen := len(b)
 		if blen <= haslen{
@@ -211,7 +211,7 @@ func parseMsgPackValue(b []byte,c *cache)(result *DxValue,tail []byte,err error)
 		//扩展，需要判定一下这个扩展是否是日期时间格式
 		exlen,b,err := parseExtLen(code,b)
 		if err != nil{
-			return result,tail,err
+			return result,b,err
 		}
 		haslen := len(b)
 		if haslen < exlen{

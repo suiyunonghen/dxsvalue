@@ -1,7 +1,7 @@
 package dxsvalue
 
 //https://github.com/msgpack/msgpack/blob/master/spec.md
-type  MsgPackCode		uint8
+type  MsgPackCode	byte
 const(
 	CodeUnkonw		MsgPackCode = 0
 

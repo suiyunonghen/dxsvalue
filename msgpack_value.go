@@ -3,6 +3,7 @@ package dxsvalue
 import (
 	"fmt"
 	"github.com/suiyunonghen/DxCommonLib"
+	"math"
 )
 
 func parseUint8(b []byte)(byte,[]byte,error)  {
@@ -145,4 +146,130 @@ func parseString(code MsgPackCode,b []byte,c *cache)(result *DxValue,tail []byte
 		return result,b[stlen:],nil
 	}
 	return nil,b,fmt.Errorf("msgpack: string data truncated,totalen=%d,realLen=%d",stlen,haslen)
+}
+
+func getExtcode(exbinLen int)MsgPackCode  {
+	switch exbinLen {
+	case 1:
+		return CodeFixExt1
+	case 2:
+		return CodeFixExt2
+	case 4:
+		return CodeFixExt4
+	case 8:
+		return CodeFixExt8
+	case 16:
+		return CodeFixExt16
+	}
+	if exbinLen < 256 {
+		return CodeExt8
+	}
+	if exbinLen < 65536 {
+		return CodeExt16
+	}
+	return CodeExt32
+}
+
+func writeExtCode(exlen int,dst []byte)[]byte  {
+	switch exlen {
+	case 1:
+		dst = append(dst,byte(CodeFixExt1))
+	case 2:
+		dst = append(dst,byte(CodeFixExt2))
+	case 4:
+		dst = append(dst,byte(CodeFixExt4))
+	case 8:
+		dst = append(dst,byte(CodeFixExt8))
+	case 16:
+		dst = append(dst,byte(CodeFixExt16))
+	}
+	if exlen < 256 {
+		dst = append(dst,byte(CodeExt8),byte(exlen))
+	}else if exlen < 65536 {
+		dst = append(dst,byte(CodeExt16),byte(exlen >> 8),byte(exlen))
+	}else{
+		dst = append(dst,byte(CodeExt32),byte(exlen >> 24),byte(exlen >> 16),byte(exlen >> 8),byte(exlen))
+	}
+	return dst
+}
+
+func writeBinCode(binlen int,dst []byte)[]byte  {
+	if binlen < 256 {
+		dst = append(dst,byte(CodeBin8),byte(binlen))
+	}else if binlen < 65536 {
+		dst = append(dst,byte(CodeBin16),byte(binlen >> 8),byte(binlen))
+	}else{
+		dst = append(dst,byte(CodeBin32),byte(binlen >> 24),byte(binlen >> 16),byte(binlen >> 8),byte(binlen))
+	}
+	return dst
+}
+
+func writeStrCode(strlen int,dst []byte)[]byte  {
+	switch {
+	case strlen < 32:
+		dst = append(dst,byte(CodeFixedStrLow) | byte(strlen))
+	case strlen < 256:
+		dst = append(dst,byte(CodeStr8),byte(strlen))
+	case strlen < 65536:
+		dst = append(dst,byte(CodeStr16),byte(strlen >> 8),byte(strlen))
+	default:
+		dst = append(dst,byte(CodeStr32),byte(strlen >> 24),byte(strlen >> 16),byte(strlen >> 8),byte(strlen))
+	}
+	return dst
+}
+
+func writeMapCode(maplen int,dst []byte)[]byte  {
+	switch {
+	case maplen < 16:
+		dst = append(dst,byte(CodeFixedMapLow) | byte(maplen))
+	case maplen < 65536:
+		dst = append(dst,byte(CodeMap16),byte(maplen >> 8),byte(maplen))
+	default:
+		dst = append(dst,byte(CodeMap32),byte(maplen >> 24),byte(maplen >> 16),byte(maplen >> 8),byte(maplen))
+	}
+	return dst
+}
+
+func writeArrayCode(arrlen int,dst []byte)[]byte  {
+	switch {
+	case arrlen < 16:
+		dst = append(dst,byte(CodeFixedArrayLow) | byte(arrlen))
+	case arrlen < 65536:
+		dst = append(dst,byte(CodeArray16),byte(arrlen >> 8),byte(arrlen))
+	default:
+		dst = append(dst,byte(CodeArray32),byte(arrlen >> 24),byte(arrlen >> 16),byte(arrlen >> 8),byte(arrlen))
+	}
+	return dst
+}
+
+func writeInt(n int64,dst []byte)[]byte  {
+	if n >= 0{
+		if n <= math.MaxInt8 {
+			dst = append(dst,byte(n))
+		}else if n <= math.MaxUint8 {
+			dst = append(dst,byte(CodeUint8),byte(n))
+		}else if n <= math.MaxUint16 {
+			dst = append(dst,byte(CodeUint16),byte(n >> 8),byte(n))
+		}else if n <= math.MaxUint32 {
+			dst = append(dst,byte(CodeUint32),byte(n >> 24),byte(n >> 16),byte(n >> 8),byte(n))
+		}else{
+			dst = append(dst,byte(CodeUint64),byte(n >> 56),byte(n >> 48),byte(n >> 40),byte(n >> 32),byte(n >> 24),byte(n >> 16),byte(n >> 8),byte(n))
+		}
+		return dst
+	}
+	var low byte
+	low = byte(NegFixedNumLow)
+	if n >= int64(int8(low)) {
+		dst = append(dst,byte(n))
+	}else if n >= math.MinInt8 {
+		dst = append(dst,byte(CodeInt8),byte(n))
+	}else if n >= math.MinInt16{
+		dst = append(dst,byte(CodeInt16),byte(n >> 8),byte(n))
+	}else if n >= math.MinInt32 {
+		dst = append(dst,byte(CodeInt32),byte(n >> 24),byte(n >> 16),byte(n >> 8),byte(n))
+	}else{
+		//64位
+		dst = append(dst,byte(CodeInt64),byte(n >> 56),byte(n >> 48),byte(n >> 40),byte(n >> 32),byte(n >> 24),byte(n >> 16),byte(n >> 8),byte(n))
+	}
+	return dst
 }

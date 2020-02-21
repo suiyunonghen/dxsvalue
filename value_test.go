@@ -73,6 +73,8 @@ func TestNewValueFromMsgPack(t *testing.T) {
 		fmt.Println(err)
 		return
 	}
-	fmt.Print(v.String())
-
+	fmt.Println(v.String())
+	b = Value2MsgPack(v,nil)
+	v1,err := NewValueFromMsgPack(b,false)
+	fmt.Print(v1.String())
 }

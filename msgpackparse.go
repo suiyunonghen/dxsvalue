@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/suiyunonghen/DxCommonLib"
+	"math"
 	"time"
 	"unsafe"
 )
@@ -166,15 +167,15 @@ func parseMsgPackValue(b []byte,c *cache)(result *DxValue,tail []byte,err error)
 			return nil,tail,err
 		}
 		result = c.getValue(VT_Float)
-		result.SetFloat(float64(*(*float32)(unsafe.Pointer(&u32))))
+		result.SetFloat(*(*float32)(unsafe.Pointer(&u32)))
 		return result,tail,nil
 	case code == CodeDouble:
 		u64,tail,err := parseUint64(b)
 		if err != nil{
 			return nil,tail,err
 		}
-		result = c.getValue(VT_Float)
-		result.SetFloat(*(*float64)(unsafe.Pointer(&u64)))
+		result = c.getValue(VT_Double)
+		result.SetDouble(*(*float64)(unsafe.Pointer(&u64)))
 		return result,tail,nil
 	case code == CodeTrue:
 		result = valueTrue
@@ -224,19 +225,19 @@ func parseMsgPackValue(b []byte,c *cache)(result *DxValue,tail []byte,err error)
 			case CodeFixExt4:
 				sec := binary.BigEndian.Uint32(b[1:])
 				t := time.Unix(int64(sec), 0)
-				result.SetFloat(float64(DxCommonLib.Time2DelphiTime(&t)))
+				result.SetDouble(float64(DxCommonLib.Time2DelphiTime(&t)))
 			case CodeFixExt8:
 				//64位时间格式
 				sec := binary.BigEndian.Uint64(b[1:])
 				nsec := int64(sec >> 34)
 				sec &= 0x00000003ffffffff
 				t := time.Unix(int64(sec), nsec)
-				result.SetFloat(float64(DxCommonLib.Time2DelphiTime(&t)))
+				result.SetDouble(float64(DxCommonLib.Time2DelphiTime(&t)))
 			default:
 				nsec := binary.BigEndian.Uint32(b[1:])
 				sec := binary.BigEndian.Uint64(b[5:])
 				t := time.Unix(int64(sec), int64(nsec))
-				result.SetFloat(float64(DxCommonLib.Time2DelphiTime(&t)))
+				result.SetDouble(float64(DxCommonLib.Time2DelphiTime(&t)))
 			}
 		}else{
 			result = c.getValue(VT_ExBinary)
@@ -265,4 +266,93 @@ func NewValueFromMsgPack(b []byte,useCache bool)(*DxValue,error)  {
 		return nil, err
 	}
 	return v,nil
+}
+
+func Value2MsgPack(v *DxValue,dst []byte)[]byte  {
+	if dst == nil{
+		dst = make([]byte,0,256)
+	}
+	if v == nil{
+		dst = append(dst,byte(CodeNil))
+		return dst
+	}
+	switch v.DataType {
+	case VT_Object:
+		l := len(v.fobject.strkvs)
+		dst = writeMapCode(l,dst)
+		for i := 0;i < l;i++{
+			kv := v.fobject.strkvs[i]
+			l := len(kv.K)
+			dst = writeStrCode(l,dst)
+			dst = append(dst,DxCommonLib.FastString2Byte(kv.K)...)
+			dst = Value2MsgPack(kv.V,dst)
+		}
+	case VT_Array:
+		l := len(v.farr)
+		dst = writeArrayCode(l,dst)
+		for i := 0;i<l;i++{
+			dst = Value2MsgPack(v.farr[i],dst)
+		}
+	case VT_DateTime:
+		t := v.AsGoTime()
+		secs := uint64(t.Unix())
+		if secs>>34 == 0 {
+			data := uint64(t.Nanosecond())<<34 | secs
+			if data&0xffffffff00000000 == 0 {
+				//先写入code，以及exttype
+				//CodeFixExt4
+				dst = append(dst, byte(CodeFixExt4),0xff)
+				l := len(dst)
+				dst = append(dst,0,0,0,0)
+				b := dst[l:l+4]
+				binary.BigEndian.PutUint32(b, uint32(data))
+				return dst
+			}
+			dst = append(dst, byte(CodeFixExt8),0xff)
+			l := len(dst)
+			dst = append(dst,0,0,0,0,0,0,0,0)
+			b := dst[l:l+8]
+			binary.BigEndian.PutUint64(b, data)
+			return dst
+		}
+		//96
+		dst = append(dst, byte(CodeExt8),0xff)
+		l := len(dst)
+		dst = append(dst,0,0,0,0,0,0,0,0,0,0,0,0)
+		b := dst[l:l+12]
+		binary.BigEndian.PutUint32(b, uint32(t.Nanosecond()))
+		binary.BigEndian.PutUint64(b[4:], secs)
+		return dst
+	case VT_ExBinary:
+		blen := 0
+		if len(v.fbinary) > 0{
+			blen = len(v.fbinary[1:])
+		}
+		dst = writeExtCode(blen,dst)
+		//直接写入内容
+		dst = append(dst,v.fbinary...)
+	case VT_Binary:
+		blen := len(v.fbinary)
+		dst = writeBinCode(blen,dst)
+		dst = append(dst,v.fbinary...)
+	case VT_Float:
+		u32 := math.Float32bits(v.AsFloat())
+		dst = append(dst,byte(CodeFloat),byte(u32 >> 24),byte(u32 >> 16),byte(u32 >> 8),byte(u32))
+	case VT_Double:
+		u64 := math.Float64bits(v.AsDouble())
+		dst = append(dst,byte(CodeDouble),byte(u64 >> 56),byte(u64 >> 48),byte(u64 >> 40),byte(u64 >> 32),byte(u64 >> 24),byte(u64 >> 16),byte(u64 >> 8),byte(u64))
+	case VT_Int:
+		dst = writeInt(v.AsInt(),dst)
+	case VT_String,VT_RawString:
+		l := len(v.fstrvalue)
+		dst = writeStrCode(l,dst)
+		dst = append(dst,DxCommonLib.FastString2Byte(v.fstrvalue)...)
+	case VT_False:
+		dst = append(dst,byte(CodeFalse))
+	case VT_True:
+		dst = append(dst,byte(CodeTrue))
+	case VT_NULL:
+		dst = append(dst,byte(CodeNil))
+	}
+	return dst
 }

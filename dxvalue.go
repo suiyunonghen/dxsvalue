@@ -16,6 +16,7 @@ const(
 	VT_RawString //未正常转义的字符串,Json解析之后是这样的
 	VT_Int
 	VT_Float
+	VT_Double
 	VT_DateTime
 	VT_Binary		//二进制
 	VT_ExBinary		//MsgPack的扩展二进制
@@ -215,8 +216,10 @@ func (v *DxValue)AsInt()int64  {
 		return 0
 	case VT_Int:
 		return *((*int64)(unsafe.Pointer(&v.simpleV[0])))
-	case VT_Float,VT_DateTime:
+	case VT_Double,VT_DateTime:
 		return int64(*((*float64)(unsafe.Pointer(&v.simpleV[0]))))
+	case VT_Float:
+		return int64(*((*float32)(unsafe.Pointer(&v.simpleV[0]))))
 	case VT_String,VT_RawString:
 		return DxCommonLib.StrToIntDef(v.fstrvalue,0)
 	}
@@ -348,9 +351,12 @@ func (v *DxValue)AsString()string  {
 		return "true"
 	case VT_False:
 		return "false"
-	case VT_Float:
+	case VT_Double:
 		vf := *((*float64)(unsafe.Pointer(&v.simpleV[0])))
 		return strconv.FormatFloat(vf,'f',-1,64)
+	case VT_Float:
+		vf := *((*float32)(unsafe.Pointer(&v.simpleV[0])))
+		return strconv.FormatFloat(float64(vf),'f',-1,64)
 	case VT_DateTime:
 		dt := *((*DxCommonLib.TDateTime)(unsafe.Pointer(&v.simpleV[0])))
 		return dt.ToTime().Format("2006-01-02 15:04:05")
@@ -390,12 +396,20 @@ func (v *DxValue)SetIndexInt(idx int,value int64)  {
 	v.SetIndex(idx,VT_Int).SetInt(value)
 }
 
-func (v *DxValue)SetKeyFloat(Name string,value float64)  {
+func (v *DxValue)SetKeyFloat(Name string,value float32)  {
 	v.SetKey(Name,VT_Float).SetFloat(value)
 }
 
-func (v *DxValue)SetIndexFloat(idx int,value float64)  {
+func (v *DxValue)SetIndexFloat(idx int,value float32)  {
 	v.SetIndex(idx,VT_Float).SetFloat(value)
+}
+
+func (v *DxValue)SetKeyDouble(Name string,value float64)  {
+	v.SetKey(Name,VT_Double).SetDouble(value)
+}
+
+func (v *DxValue)SetIndexDouble(idx int,value float64)  {
+	v.SetIndex(idx,VT_Double).SetDouble(value)
 }
 
 func (v *DxValue)SetKeyBool(Name string,value bool)  {
@@ -415,11 +429,11 @@ func (v *DxValue)SetIndexBool(idx int,value bool)  {
 }
 
 func (v *DxValue)SetKeyTime(Name string,value time.Time)  {
-	v.SetKey(Name,VT_DateTime).SetFloat(float64(DxCommonLib.Time2DelphiTime(&value)))
+	v.SetKey(Name,VT_DateTime).SetDouble(float64(DxCommonLib.Time2DelphiTime(&value)))
 }
 
 func (v *DxValue)SetIndexTime(idx int,value time.Time)  {
-	v.SetIndex(idx,VT_DateTime).SetFloat(float64(DxCommonLib.Time2DelphiTime(&value)))
+	v.SetIndex(idx,VT_DateTime).SetDouble(float64(DxCommonLib.Time2DelphiTime(&value)))
 }
 
 func (v *DxValue)AsBool()bool  {
@@ -448,7 +462,7 @@ func (v *DxValue)SetBool(value bool)  {
 	}
 }
 
-func (v *DxValue)AsFloat()float64  {
+func (v *DxValue)AsDouble()float64  {
 	switch v.DataType {
 	case VT_True:
 		return 1
@@ -456,18 +470,39 @@ func (v *DxValue)AsFloat()float64  {
 		return 0
 	case VT_Int:
 		return float64(*((*int64)(unsafe.Pointer(&v.simpleV[0]))))
-	case VT_Float,VT_DateTime:
+	case VT_Double,VT_DateTime:
 		return *((*float64)(unsafe.Pointer(&v.simpleV[0])))
+	case VT_Float:
+		return float64(*((*float32)(unsafe.Pointer(&v.simpleV[0]))))
 	case VT_String,VT_RawString:
 		return DxCommonLib.StrToFloatDef(v.fstrvalue,0)
 	}
 	return 0
 }
 
+func (v *DxValue)AsFloat()float32  {
+	switch v.DataType {
+	case VT_True:
+		return 1
+	case VT_False:
+		return 0
+	case VT_Int:
+		return float32(*((*int64)(unsafe.Pointer(&v.simpleV[0]))))
+	case VT_Double,VT_DateTime:
+		return float32(*((*float64)(unsafe.Pointer(&v.simpleV[0]))))
+	case VT_Float:
+		return *((*float32)(unsafe.Pointer(&v.simpleV[0])))
+	case VT_String,VT_RawString:
+		return float32(DxCommonLib.StrToFloatDef(v.fstrvalue,0))
+	}
+	return 0
+}
+
+
 func (v *DxValue)AsDateTime()DxCommonLib.TDateTime  {
 	switch v.DataType {
-	case VT_Int,VT_Float,VT_DateTime:
-		return (DxCommonLib.TDateTime)(v.AsFloat())
+	case VT_Int,VT_Double,VT_Float,VT_DateTime:
+		return (DxCommonLib.TDateTime)(v.AsDouble())
 	case VT_String,VT_RawString:
 		if t,err := time.Parse("2006-01-02T15:04:05Z",v.fstrvalue);err == nil{
 			return DxCommonLib.Time2DelphiTime(&t)
@@ -482,8 +517,8 @@ func (v *DxValue)AsDateTime()DxCommonLib.TDateTime  {
 
 func (v *DxValue)AsGoTime()time.Time  {
 	switch v.DataType {
-	case VT_Int,VT_Float,VT_DateTime:
-		return (DxCommonLib.TDateTime)(v.AsFloat()).ToTime()
+	case VT_Int,VT_Float,VT_Double, VT_DateTime:
+		return (DxCommonLib.TDateTime)(v.AsDouble()).ToTime()
 	case VT_String,VT_RawString:
 		if t,err := time.Parse("2006-01-02T15:04:05Z",v.fstrvalue);err == nil{
 			return t
@@ -496,11 +531,18 @@ func (v *DxValue)AsGoTime()time.Time  {
 	return time.Time{}
 }
 
-func (v *DxValue)SetFloat(value float64)  {
+func (v *DxValue)SetDouble(value float64)  {
+	if v.DataType != VT_Double{
+		v.Reset(VT_Double)
+	}
+	*((*float64)(unsafe.Pointer(&v.simpleV[0]))) = value
+}
+
+func (v *DxValue)SetFloat(value float32)  {
 	if v.DataType != VT_Float{
 		v.Reset(VT_Float)
 	}
-	*((*float64)(unsafe.Pointer(&v.simpleV[0]))) = value
+	*((*float32)(unsafe.Pointer(&v.simpleV[0]))) = value
 }
 
 func (v *DxValue)AsObject()*VObject  {
@@ -566,12 +608,20 @@ func (v *DxValue)IntByPath(DefaultValue int64, paths ...string)int64  {
 	return result.AsInt()
 }
 
-func (v *DxValue)FloatByPath(DefaultValue float64, paths ...string)float64  {
+func (v *DxValue)FloatByPath(DefaultValue float32, paths ...string)float32  {
 	result := v.ValueByPath(paths...)
 	if result == nil{
 		return DefaultValue
 	}
 	return result.AsFloat()
+}
+
+func (v *DxValue)DoubleByPath(DefaultValue float64, paths ...string)float64  {
+	result := v.ValueByPath(paths...)
+	if result == nil{
+		return DefaultValue
+	}
+	return result.AsDouble()
 }
 
 func (v *DxValue)DateTimeByPath(DefaultValue DxCommonLib.TDateTime, paths ...string)DxCommonLib.TDateTime  {

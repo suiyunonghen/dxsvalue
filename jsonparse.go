@@ -321,7 +321,7 @@ func parseJsonValue(b []byte,c *cache)(result *DxValue,tail []byte,err error)  {
 			result.fstrvalue = ss
 		}else{
 			result = c.getValue(VT_DateTime)
-			result.SetFloat(float64(dt))
+			result.SetDouble(float64(dt))
 		}
 		return result, tail, nil
 	}
@@ -375,7 +375,7 @@ func parseJsonNum(b []byte,c *cache) (num *DxValue, tail []byte,err error) {
 		if isfloat{
 			v := DxCommonLib.StrToFloatDef(DxCommonLib.FastByte2String(ns),0)
 			num = c.getValue(VT_Float)
-			num.SetFloat(v)
+			num.SetFloat(float32(v))
 		}else{
 			v := DxCommonLib.StrToIntDef(DxCommonLib.FastByte2String(ns),0)
 			num = c.getValue(VT_Int)
@@ -452,8 +452,8 @@ func Value2Json(v *DxValue,escapestr bool, dst []byte)[]byte  {
 			}
 		}
 		dst = append(dst, ']')
-	case VT_Float:
-		dst = strconv.AppendFloat(dst,v.AsFloat(),'f',-1,64)
+	case VT_Float,VT_Double:
+		dst = strconv.AppendFloat(dst,v.AsDouble(),'f',-1,64)
 	case VT_RawString:
 		dst = append(dst,'"')
 		dst = append(dst,DxCommonLib.FastString2Byte(v.fstrvalue)...)

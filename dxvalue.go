@@ -381,6 +381,10 @@ func (v *DxValue)AsInt(Name string,def int)int  {
 	return int(v.IntByPath(int64(def),Name))
 }
 
+func (v *DxValue)AsInt64(Name string,def int64)int64  {
+	return v.IntByPath(int64(def),Name)
+}
+
 func (v *DxValue)AsFloat(Name string,def float32)float32  {
 	return v.FloatByPath(def,Name)
 }

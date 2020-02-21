@@ -394,6 +394,7 @@ func (v *DxValue)AsDateTime(Name string,def DxCommonLib.TDateTime)DxCommonLib.TD
 }
 
 
+
 func (v *DxValue)SetString(value string)  {
 	if v.DataType != VT_String{
 		v.Reset(VT_String)
@@ -766,6 +767,46 @@ func (v *DxValue)Count()int  {
 		return len(v.farr)
 	}
 	return 0
+}
+
+func (v *DxValue)IntByIndex(idx int,def int)int  {
+	value := v.ValueByIndex(idx)
+	if value != nil{
+		return int(value.Int())
+	}
+	return def
+}
+
+func (v *DxValue)StringByIndex(idx int,def string)string  {
+	value := v.ValueByIndex(idx)
+	if value != nil{
+		return value.String()
+	}
+	return def
+}
+
+func (v *DxValue)BoolByIndex(idx int,def bool)bool  {
+	value := v.ValueByIndex(idx)
+	if value != nil{
+		return value.Bool()
+	}
+	return def
+}
+
+func (v *DxValue)FloatByIndex(idx int,def float32)float32  {
+	value := v.ValueByIndex(idx)
+	if value != nil{
+		return value.Float()
+	}
+	return def
+}
+
+func (v *DxValue)DoubleByIndex(idx int,def float64)float64  {
+	value := v.ValueByIndex(idx)
+	if value != nil{
+		return value.Double()
+	}
+	return def
 }
 
 func (v *DxValue)ValueByIndex(idx int)*DxValue{

@@ -164,42 +164,57 @@ func NewValue(tp ValueType)*DxValue  {
 	return result
 }
 
+func NewCacheValue(tp ValueType)*DxValue  {
+	switch tp {
+	case VT_True:
+		return valueTrue
+	case VT_False:
+		return valueFalse
+	case VT_NULL:
+		return valueNull
+	case VT_INF:
+		return valueINF
+	case VT_NAN:
+		return valueNAN
+	}
+	c := getCache()
+	//缓存模式下，会公用这个cacheBuffer
+	c.cacheBuffer = c.cacheBuffer[:0]
+	return c.getValue(tp)
+}
+
 func (v *DxValue)Reset(dt ValueType)  {
 	if v == valueNAN || v == valueINF || v == valueTrue || v == valueFalse || v == valueNull{
 		return
 	}
 	v.fobject.keysUnescaped = false
-	if v.DataType != dt{
-		switch v.DataType {
-		case VT_Array:
-			for i := 0;i<len(v.farr);i++{
-				v.farr[i] = nil
-			}
-			v.farr = v.farr[:0]
-		case VT_Object:
-			for i := 0; i < len(v.fobject.strkvs);i++{
-				v.fobject.strkvs[i].V = nil
-			}
-			v.fobject.strkvs = v.fobject.strkvs[:0]
-		}
-	}
 	v.DataType = dt
 	switch dt {
 	case VT_Object:
 		if v.fobject.strkvs == nil{
 			v.fobject.strkvs = make([]strkv,0,32)
+		}else{
+			for i := 0; i < len(v.fobject.strkvs);i++{
+				v.fobject.strkvs[i].V = nil
+			}
+			v.fobject.strkvs = v.fobject.strkvs[:0]
 		}
 		v.farr = nil
 	case VT_Array:
 		v.fobject.strkvs = nil
-		if v.farr == nil{
-			v.farr = make([]*DxValue,0,32)
+		if v.fobject.strkvs == nil{
+			v.fobject.strkvs = make([]strkv,0,32)
+		}else{
+			for i := 0;i<len(v.farr);i++{
+				v.farr[i] = nil
+			}
+			v.farr = v.farr[:0]
 		}
 	default:
 		v.farr = nil
 		v.fobject.strkvs = nil
 	}
-	v.fbinary = v.fbinary[:0]
+	v.fbinary = nil
 	v.fstrvalue = ""
 	DxCommonLib.ZeroByteSlice(v.simpleV[:])
 }
@@ -390,7 +405,7 @@ func (v *DxValue)AsFloat(Name string,def float32)float32  {
 	return v.FloatByPath(def,Name)
 }
 
-func (v *DxValue)AsDoule(Name string,def float64)float64  {
+func (v *DxValue)AsDouble(Name string,def float64)float64  {
 	return v.DoubleByPath(def,Name)
 }
 
@@ -413,6 +428,10 @@ func (v *DxValue)SetKeyString(Name,value string)  {
 
 func (v *DxValue)SetIndexString(idx int,value string)  {
 	v.SetIndex(idx,VT_String).fstrvalue = value
+}
+
+func (v *DxValue)SetIndexTime(idx int,t *time.Time)  {
+	v.SetIndex(idx,VT_DateTime).SetDouble(float64(DxCommonLib.Time2DelphiTime(t)))
 }
 
 func (v *DxValue)SetKeyInt(Name string,value int64)  {
@@ -457,10 +476,6 @@ func (v *DxValue)SetIndexBool(idx int,value bool)  {
 
 func (v *DxValue)SetKeyTime(Name string,value time.Time)  {
 	v.SetKey(Name,VT_DateTime).SetDouble(float64(DxCommonLib.Time2DelphiTime(&value)))
-}
-
-func (v *DxValue)SetIndexTime(idx int,value time.Time)  {
-	v.SetIndex(idx,VT_DateTime).SetDouble(float64(DxCommonLib.Time2DelphiTime(&value)))
 }
 
 func (v *DxValue)Bool()bool  {

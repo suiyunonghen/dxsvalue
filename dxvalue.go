@@ -179,7 +179,6 @@ func NewCacheValue(tp ValueType)*DxValue  {
 	}
 	c := getCache()
 	//缓存模式下，会公用这个cacheBuffer
-	c.cacheBuffer = c.cacheBuffer[:0]
 	return c.getValue(tp)
 }
 
@@ -196,6 +195,7 @@ func (v *DxValue)Reset(dt ValueType)  {
 		}else{
 			for i := 0; i < len(v.fobject.strkvs);i++{
 				v.fobject.strkvs[i].V = nil
+				v.fobject.strkvs[i].K = ""
 			}
 			v.fobject.strkvs = v.fobject.strkvs[:0]
 		}
@@ -216,7 +216,6 @@ func (v *DxValue)Reset(dt ValueType)  {
 	}
 	v.fbinary = nil
 	v.fstrvalue = ""
-	DxCommonLib.ZeroByteSlice(v.simpleV[:])
 }
 
 func (v *DxValue)Type() ValueType {
@@ -691,7 +690,7 @@ func (v *DxValue)SetKey(Name string,tp ValueType)*DxValue  {
 		if result == valueTrue || result == valueFalse || result == valueINF || result == valueNAN || result == valueNull{
 			result = NewValue(tp)
 			v.fobject.strkvs[idx].V = result
-		}else{
+		}else if result.DataType != tp {
 			result.Reset(tp)
 		}
 		return result
@@ -746,7 +745,7 @@ func (v *DxValue)SetIndex(idx int,tp ValueType)*DxValue  {
 			if result == valueTrue || result == valueNull || result == valueFalse || result == valueINF || result == valueNAN{
 				result = NewValue(tp)
 				v.farr[idx] = result
-			}else{
+			}else if result.DataType != tp {
 				result.Reset(tp)
 			}
 		}else if result == nil{

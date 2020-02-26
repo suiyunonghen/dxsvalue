@@ -1,6 +1,8 @@
 package dxsvalue
 
-import "sync"
+import (
+	"sync"
+)
 
 var(
 	cachePool	sync.Pool
@@ -9,7 +11,6 @@ var(
 type	cache struct {
 	fisroot	bool
 	Value	[]DxValue
-	cacheBuffer	[]byte
 }
 
 func (c *cache)getValue(t ValueType)*DxValue  {
@@ -51,6 +52,27 @@ func FreeValue(v *DxValue)  {
 	c := v.ownercache
 	v.ownercache = nil
 	if c!=nil{
+		for i := 0;i<len(c.Value);i++{
+			switch c.Value[i].DataType {
+			case VT_Object:
+				for j := 0;j<len(c.Value[i].fobject.strkvs);j++{
+					c.Value[i].fobject.strkvs[j].V = nil
+					c.Value[i].fobject.strkvs[j].K = ""
+				}
+				c.Value[i].fobject.strkvs = c.Value[i].fobject.strkvs[:0]
+			case VT_Array:
+				for j := 0;j<len(c.Value[i].farr);j++{
+					c.Value[i].farr[j] = nil
+				}
+				c.Value[i].farr = c.Value[i].farr[:0]
+			case VT_Binary,VT_ExBinary:
+				c.Value[i].fbinary = nil
+			case VT_String,VT_RawString:
+				c.Value[i].fstrvalue = ""
+			default:
+				//DxCommonLib.ZeroByteSlice(v.simpleV[:])
+			}
+		}
 		c.Value = c.Value[:0]
 		cachePool.Put(c)
 	}

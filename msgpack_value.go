@@ -2,7 +2,6 @@ package dxsvalue
 
 import (
 	"fmt"
-	"github.com/suiyunonghen/DxCommonLib"
 	"math"
 )
 
@@ -142,7 +141,7 @@ func parseString(code MsgPackCode,b []byte,c *cache)(result *DxValue,tail []byte
 	haslen := len(b)
 	if haslen >= stlen{
 		result = c.getValue(VT_String)
-		result.fstrvalue = DxCommonLib.FastByte2String(b[:stlen])
+		result.fstrvalue = string(b[:stlen])
 		return result,b[stlen:],nil
 	}
 	return nil,b,fmt.Errorf("msgpack: string data truncated,totalen=%d,realLen=%d",stlen,haslen)

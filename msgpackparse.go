@@ -52,7 +52,7 @@ func parseMsgPackObject(code MsgPackCode,b []byte,c *cache)(result *DxValue,tail
 			return nil,b,err
 		}
 		if c != nil{
-			key = DxCommonLib.FastByte2String(rawbyte)
+			key = string(rawbyte)
 		}else{
 			key = string(rawbyte)
 		}
@@ -257,9 +257,6 @@ func NewValueFromMsgPack(b []byte,useCache bool)(*DxValue,error)  {
 		c = nil
 	}else{
 		c = getCache()
-		//缓存模式下，会公用这个cacheBuffer
-		c.cacheBuffer = append(c.cacheBuffer[:0],b...)
-		b = c.cacheBuffer
 	}
 	v, _, err := parseMsgPackValue(b,c)
 	if err != nil {

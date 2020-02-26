@@ -140,7 +140,7 @@ func parseJsonKey(b []byte,useCache bool) (key string, tail []byte, err error) {
 	for i := 0; i < l; i++ {
 		if b[i] == '"' {
 			if useCache{
-				return DxCommonLib.FastByte2String(b[:i]), b[i+1:], nil
+				return string(b[:i]), b[i+1:], nil
 			}
 			return string(b[:i]), b[i+1:], nil
 		}
@@ -169,7 +169,7 @@ func parseJsonString(b []byte,useCache bool) (value string, tail []byte, err err
 	}
 	if n == 0 || b[n-1] != '\\' {//不是转义的"
 		if useCache{
-			return DxCommonLib.FastByte2String(b[:n]), b[n+1:], nil
+			return string(b[:n]), b[n+1:], nil
 		}
 		return string(b[:n]), b[n+1:], nil
 	}
@@ -182,7 +182,7 @@ func parseJsonString(b []byte,useCache bool) (value string, tail []byte, err err
 		}
 		if uint(n-i)%2 == 0 {
 			if useCache{
-				return DxCommonLib.FastByte2String(ss[:len(ss)-len(b)+n]), b[n+1:], nil
+				return string(ss[:len(ss)-len(b)+n]), b[n+1:], nil
 			}
 			return string(ss[:len(ss)-len(b)+n]), b[n+1:], nil
 		}
@@ -190,14 +190,14 @@ func parseJsonString(b []byte,useCache bool) (value string, tail []byte, err err
 
 		n = bytes.IndexByte(b, '"')
 		if n < 0 {
-			return DxCommonLib.FastByte2String(ss), ss, &ErrorParseJson{
+			return string(ss), ss, &ErrorParseJson{
 				Type:         JET_NoStrEnd,
 				InvalidIndex: 0,
 			}
 		}
 		if n == 0 || b[n-1] != '\\' {
 			if useCache{
-				return DxCommonLib.FastByte2String(ss[:len(ss)-len(b)+n]), b[n+1:], nil
+				return string(ss[:len(ss)-len(b)+n]), b[n+1:], nil
 			}
 			return string(ss[:len(ss)-len(b)+n]), b[n+1:], nil
 		}
@@ -275,9 +275,6 @@ func NewValueFromJson(b []byte,useCache bool)(*DxValue,error)  {
 		c = nil
 	}else{
 		c = getCache()
-		//缓存模式下，会公用这个cacheBuffer
-		c.cacheBuffer = append(c.cacheBuffer[:0],b...)
-		b = c.cacheBuffer
 	}
 	b,skiplen := skipWB(b)
 	v, tail, err := parseJsonValue(b,c)

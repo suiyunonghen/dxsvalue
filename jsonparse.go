@@ -84,7 +84,7 @@ func parseJsonObj(b []byte,c *cache)(result *DxValue,tail []byte,err error)  {
 				parseB:oldb,
 			}
 		}
-		kv.K, b, err = parseJsonKey(b[1:],c!=nil)
+		kv.K, b, err = parseJsonKey(b[1:])
 		if err != nil{
 			result = nil
 			return
@@ -135,17 +135,14 @@ func parseJsonObj(b []byte,c *cache)(result *DxValue,tail []byte,err error)  {
 	}
 }
 
-func parseJsonKey(b []byte,useCache bool) (key string, tail []byte, err error) {
+func parseJsonKey(b []byte) (key string, tail []byte, err error) {
 	l := len(b)
 	for i := 0; i < l; i++ {
 		if b[i] == '"' {
-			if useCache{
-				return string(b[:i]), b[i+1:], nil
-			}
 			return string(b[:i]), b[i+1:], nil
 		}
 		if b[i] == '\\' { //有转义的
-			key,tail,err = parseJsonString(b,useCache)
+			key,tail,err = parseJsonString(b)
 			if jpe,ok := err.(*ErrorParseJson);ok{
 				if jpe.Type == JET_NoStrEnd{
 					jpe.Type = JET_NoKeyEnd
@@ -159,7 +156,7 @@ func parseJsonKey(b []byte,useCache bool) (key string, tail []byte, err error) {
 	}
 }
 
-func parseJsonString(b []byte,useCache bool) (value string, tail []byte, err error) {
+func parseJsonString(b []byte) (value string, tail []byte, err error) {
 	n := bytes.IndexByte(b, '"')
 	if n < 0 {
 		return "", b, &ErrorParseJson{
@@ -168,9 +165,6 @@ func parseJsonString(b []byte,useCache bool) (value string, tail []byte, err err
 		}
 	}
 	if n == 0 || b[n-1] != '\\' {//不是转义的"
-		if useCache{
-			return string(b[:n]), b[n+1:], nil
-		}
 		return string(b[:n]), b[n+1:], nil
 	}
 
@@ -181,9 +175,6 @@ func parseJsonString(b []byte,useCache bool) (value string, tail []byte, err err
 			i--
 		}
 		if uint(n-i)%2 == 0 {
-			if useCache{
-				return string(ss[:len(ss)-len(b)+n]), b[n+1:], nil
-			}
 			return string(ss[:len(ss)-len(b)+n]), b[n+1:], nil
 		}
 		b = b[n+1:]
@@ -196,9 +187,6 @@ func parseJsonString(b []byte,useCache bool) (value string, tail []byte, err err
 			}
 		}
 		if n == 0 || b[n-1] != '\\' {
-			if useCache{
-				return string(ss[:len(ss)-len(b)+n]), b[n+1:], nil
-			}
 			return string(ss[:len(ss)-len(b)+n]), b[n+1:], nil
 		}
 	}
@@ -308,7 +296,7 @@ func parseJsonValue(b []byte,c *cache)(result *DxValue,tail []byte,err error)  {
 		return parseJsonArray(b[1:],c)
 	}
 	if b[0] == '"' {
-		ss, tail, err := parseJsonString(b[1:],c!=nil)
+		ss, tail, err := parseJsonString(b[1:])
 		if err != nil {
 			return nil, tail, err
 		}

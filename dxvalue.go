@@ -1,6 +1,7 @@
 package dxsvalue
 
 import (
+	"bytes"
 	"github.com/suiyunonghen/DxCommonLib"
 	"strconv"
 	"strings"
@@ -244,6 +245,104 @@ func (v *DxValue)FloatByName(Key string,defv float32)float32  {
 
 func (v *DxValue)DoubleByName(Key string,defv float64)float64  {
 	return v.AsDouble(Key,defv)
+}
+
+
+func (v *DxValue)MergeWith(value *DxValue)  {
+	if value == nil || v == nil || value.DataType != v.DataType || v.DataType > VT_Array{
+		return
+	}
+	if v.DataType == VT_Object{
+		for i := 0;i<len(value.fobject.strkvs);i++{
+			vObj := v.fobject.ValueByName(value.fobject.strkvs[i].K)
+			if vObj != nil{
+				if vObj.DataType <= VT_Array{
+					vObj.MergeWith(value.fobject.strkvs[i].V)
+				}else{
+					//合并成数组
+					oldobj := vObj.clone(nil)
+					vObj.Reset(VT_Array)
+					vObj.SetIndexValue(0,oldobj)
+					vObj.SetIndexValue(1,value.fobject.strkvs[i].V.clone(nil))
+				}
+			}else{
+				//没有，直接增加
+				v.SetKeyValue(value.fobject.strkvs[i].K,value.fobject.strkvs[i].V.clone(nil))
+			}
+		}
+		return
+	}
+	//直接将两个数组合并
+	var willAdd []*DxValue
+	for i := 0;i<len(value.farr);i++{
+		newv := value.farr[i]
+		hasFound := false
+		for j := 0;j<len(v.farr);j++{
+			if newv.Equal(v.farr[j]){
+				hasFound = true
+				break
+			}
+		}
+		if !hasFound{
+			willAdd = append(willAdd,newv.clone(nil))
+		}
+	}
+	if len(willAdd) > 0{
+		v.farr = append(v.farr,willAdd...)
+	}
+}
+
+func (v *DxValue)Equal(value *DxValue)bool  {
+	if v == nil && value == nil{
+		return true
+	}
+	if v == nil && value != nil || v != nil && value == nil{
+		return false
+	}
+
+	if v.DataType != value.DataType {
+		if v.DataType == VT_String && value.DataType == VT_RawString ||
+			value.DataType == VT_String && v.DataType == VT_RawString{
+			return strings.EqualFold(v.String(),value.String())
+		}
+		if v.DataType >= VT_Int && v.DataType <= VT_Double && value.DataType >= VT_Int && value.DataType <= VT_Double{
+			return v.Double() == value.Double()
+		}
+		return false
+	}
+	switch v.DataType {
+	case VT_String,VT_RawString:
+		return v.fstrvalue == value.fstrvalue
+	case VT_Binary,VT_ExBinary:
+		return bytes.Compare(v.fbinary,value.fbinary) == 0
+	case VT_Object:
+		if len(v.fobject.strkvs) != len(value.fobject.strkvs){
+			return false
+		}
+		v.fobject.UnEscapestrs()
+		value.fobject.UnEscapestrs()
+		for i := 0;i<len(v.fobject.strkvs);i++{
+			if v.fobject.strkvs[i].K != value.fobject.strkvs[i].K ||
+				!v.fobject.strkvs[i].V.Equal(value.fobject.strkvs[i].V){
+				return false
+			}
+		}
+	case VT_Array:
+		if len(v.farr) != len(v.farr){
+			return false
+		}
+		for i := 0;i<len(v.farr);i++{
+			if !v.farr[i].Equal(value.farr[i]){
+				return false
+			}
+		}
+	default:
+		if v.DataType >= VT_ExBinary{
+			return v.DataType == value.DataType
+		}
+		return bytes.Compare(v.simpleV[:],value.simpleV[:]) == 0
+	}
+	return true
 }
 
 func (v *DxValue)TimeByName(Key string,defv time.Time)time.Time  {

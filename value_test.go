@@ -78,3 +78,36 @@ func TestNewValueFromMsgPack(t *testing.T) {
 	v1,err := NewValueFromMsgPack(b,false)
 	fmt.Print(v1.String())
 }
+
+func TestDxValue_MergeWith(t *testing.T) {
+	v1 := NewValue(VT_Object)
+	rootv := v1.SetKey("People",VT_Object)
+	rootv.SetKeyString("Name","DxSoft")
+	rootv.SetKeyString("Childs","ChildName1")
+
+	v2 := NewValue(VT_Object)
+	rootv = v2.SetKey("People",VT_Object)
+	rootv.SetKeyString("Sex","Men")
+	rootv.SetKeyInt("Age",20)
+	rootv.SetKeyString("Childs","ChildName2")
+	fmt.Println(v1.String())
+	fmt.Println(v2.String())
+
+	v1.MergeWith(v2)
+	fmt.Println(v1.String())
+
+	//数组合并
+	varr1 := NewValue(VT_Array)
+	varr1.SetIndexString(0,"Dxsoft")
+	varr1.SetIndexString(1,"People")
+	varr1.SetIndexInt(2,20)
+
+	varr2 := NewValue(VT_Array)
+	varr2.SetIndexString(0,"Dxsoft")
+	varr2.SetIndexString(1,"People")
+	varr2.SetIndexInt(2,40)
+
+	varr1.MergeWith(varr2)
+	fmt.Println(varr1.String())
+
+}

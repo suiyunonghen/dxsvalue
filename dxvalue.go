@@ -222,6 +222,34 @@ func (v *DxValue)Type() ValueType {
 	return v.DataType
 }
 
+func (v *DxValue)Find(key string)*DxValue  {
+	return v.ValueByName(key)
+}
+
+func (v *DxValue)StringByName(key string,defstr string)string  {
+	return v.AsString(key,defstr)
+}
+
+func (v *DxValue)IntByName(key string,def int)int  {
+	return v.AsInt(key,def)
+}
+
+func (v *DxValue)BoolByName(Key string,defv bool)bool  {
+	return v.AsBool(Key,defv)
+}
+
+func (v *DxValue)FloatByName(Key string,defv float32)float32  {
+	return v.AsFloat(Key,defv)
+}
+
+func (v *DxValue)DoubleByName(Key string,defv float64)float64  {
+	return v.AsDouble(Key,defv)
+}
+
+func (v *DxValue)TimeByName(Key string,defv time.Time)time.Time  {
+	return v.AsDateTime(Key,DxCommonLib.Time2DelphiTime(&defv)).ToTime()
+}
+
 func (v *DxValue)Int()int64  {
 	switch v.DataType {
 	case VT_True:

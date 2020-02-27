@@ -93,8 +93,9 @@ func TestDxValue_MergeWith(t *testing.T) {
 	fmt.Println(v1.String())
 	fmt.Println(v2.String())
 
-	v1.MergeWith(v2, func(key string,oldv *DxValue, newv *DxValue) MergeOp {
-		if key == "Childs"{
+	v1.MergeWith(v2, func(keypath string,oldv *DxValue, newv *DxValue) MergeOp {
+		fmt.Println(keypath)
+		if keypath == "People/Childs"{
 			return MO_Replace
 		}
 		return MO_Normal

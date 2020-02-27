@@ -254,42 +254,52 @@ const(
 	MO_Normal  //执行默认操作，对于object的，碰到相同的就合并并集，Array的也是取并集
 )
 
-type MergeFunc	func(key string, oldv *DxValue,newv *DxValue)MergeOp
+type MergeFunc	func(keyPath string, oldv *DxValue,newv *DxValue)MergeOp
+
+func mergeObject(parentpath []byte,v,value *DxValue,mergefunc MergeFunc)[]byte  {
+	mergeOp := MO_Normal
+	for i := 0;i<len(value.fobject.strkvs);i++{
+		idx := v.fobject.indexByName(value.fobject.strkvs[i].K)
+		if idx != -1{
+			if mergefunc!=nil{
+				if len(parentpath) != 0{
+					parentpath = append(parentpath,'/')
+				}
+				parentpath = append(parentpath,value.fobject.strkvs[i].K...)
+				mergeOp = mergefunc(DxCommonLib.FastByte2String(parentpath),v.fobject.strkvs[idx].V,value.fobject.strkvs[i].V)
+			}
+			if mergeOp == MO_Normal{
+				if v.fobject.strkvs[idx].V.DataType <= VT_Array{
+					return mergeObject(parentpath,v.fobject.strkvs[idx].V,value.fobject.strkvs[i].V,mergefunc)
+				}else{
+					//合并成数组
+					oldobj := v.fobject.strkvs[idx].V.clone(nil)
+					v.fobject.strkvs[idx].V.Reset(VT_Array)
+					v.fobject.strkvs[idx].V.SetIndexValue(0,oldobj)
+					v.fobject.strkvs[idx].V.SetIndexValue(1,value.fobject.strkvs[i].V.clone(nil))
+				}
+			}else if mergeOp == MO_Replace{
+				//直接替换
+				v.fobject.strkvs[idx].V.Reset(VT_NULL)
+				v.fobject.strkvs[idx].V = value.fobject.strkvs[i].V.clone(nil)
+			}
+		}else{
+			//没有，直接增加
+			v.SetKeyValue(value.fobject.strkvs[i].K,value.fobject.strkvs[i].V.clone(nil))
+		}
+	}
+	return parentpath
+}
 
 func (v *DxValue)MergeWith(value *DxValue,mergefunc MergeFunc)  {
 	if value == nil || v == nil || value.DataType != v.DataType || v.DataType > VT_Array{
 		return
 	}
-	mergeOp := MO_Normal
 	if v.DataType == VT_Object{
-		for i := 0;i<len(value.fobject.strkvs);i++{
-			idx := v.fobject.indexByName(value.fobject.strkvs[i].K)
-			if idx != -1{
-				if mergefunc!=nil{
-					mergeOp = mergefunc(value.fobject.strkvs[i].K,v.fobject.strkvs[idx].V,value.fobject.strkvs[i].V)
-				}
-				if mergeOp == MO_Normal{
-					if v.fobject.strkvs[idx].V.DataType <= VT_Array{
-						v.fobject.strkvs[idx].V.MergeWith(value.fobject.strkvs[i].V,mergefunc)
-					}else{
-						//合并成数组
-						oldobj := v.fobject.strkvs[idx].V.clone(nil)
-						v.fobject.strkvs[idx].V.Reset(VT_Array)
-						v.fobject.strkvs[idx].V.SetIndexValue(0,oldobj)
-						v.fobject.strkvs[idx].V.SetIndexValue(1,value.fobject.strkvs[i].V.clone(nil))
-					}
-				}else if mergeOp == MO_Replace{
-					//直接替换
-					v.fobject.strkvs[idx].V.Reset(VT_NULL)
-					v.fobject.strkvs[idx].V = value.fobject.strkvs[i].V.clone(nil)
-				}
-			}else{
-				//没有，直接增加
-				v.SetKeyValue(value.fobject.strkvs[i].K,value.fobject.strkvs[i].V.clone(nil))
-			}
-		}
+		mergeObject(make([]byte,0,16),v,value,mergefunc)
 		return
 	}
+
 	//直接将两个数组合并
 	var willAdd []*DxValue
 	for i := 0;i<len(value.farr);i++{

@@ -247,23 +247,41 @@ func (v *DxValue)DoubleByName(Key string,defv float64)float64  {
 	return v.AsDouble(Key,defv)
 }
 
+type MergeOp byte
+const(
+	MO_Custom MergeOp = iota
+	MO_Replace //碰到相同的就替换
+	MO_Normal  //执行默认操作，对于object的，碰到相同的就合并并集，Array的也是取并集
+)
 
-func (v *DxValue)MergeWith(value *DxValue)  {
+type MergeFunc	func(key string, oldv *DxValue,newv *DxValue)MergeOp
+
+func (v *DxValue)MergeWith(value *DxValue,mergefunc MergeFunc)  {
 	if value == nil || v == nil || value.DataType != v.DataType || v.DataType > VT_Array{
 		return
 	}
+	mergeOp := MO_Normal
 	if v.DataType == VT_Object{
 		for i := 0;i<len(value.fobject.strkvs);i++{
-			vObj := v.fobject.ValueByName(value.fobject.strkvs[i].K)
-			if vObj != nil{
-				if vObj.DataType <= VT_Array{
-					vObj.MergeWith(value.fobject.strkvs[i].V)
-				}else{
-					//合并成数组
-					oldobj := vObj.clone(nil)
-					vObj.Reset(VT_Array)
-					vObj.SetIndexValue(0,oldobj)
-					vObj.SetIndexValue(1,value.fobject.strkvs[i].V.clone(nil))
+			idx := v.fobject.indexByName(value.fobject.strkvs[i].K)
+			if idx != -1{
+				if mergefunc!=nil{
+					mergeOp = mergefunc(value.fobject.strkvs[i].K,v.fobject.strkvs[idx].V,value.fobject.strkvs[i].V)
+				}
+				if mergeOp == MO_Normal{
+					if v.fobject.strkvs[idx].V.DataType <= VT_Array{
+						v.fobject.strkvs[idx].V.MergeWith(value.fobject.strkvs[i].V,mergefunc)
+					}else{
+						//合并成数组
+						oldobj := v.fobject.strkvs[idx].V.clone(nil)
+						v.fobject.strkvs[idx].V.Reset(VT_Array)
+						v.fobject.strkvs[idx].V.SetIndexValue(0,oldobj)
+						v.fobject.strkvs[idx].V.SetIndexValue(1,value.fobject.strkvs[i].V.clone(nil))
+					}
+				}else if mergeOp == MO_Replace{
+					//直接替换
+					v.fobject.strkvs[idx].V.Reset(VT_NULL)
+					v.fobject.strkvs[idx].V = value.fobject.strkvs[i].V.clone(nil)
 				}
 			}else{
 				//没有，直接增加

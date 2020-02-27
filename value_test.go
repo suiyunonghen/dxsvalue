@@ -93,7 +93,12 @@ func TestDxValue_MergeWith(t *testing.T) {
 	fmt.Println(v1.String())
 	fmt.Println(v2.String())
 
-	v1.MergeWith(v2)
+	v1.MergeWith(v2, func(key string,oldv *DxValue, newv *DxValue) MergeOp {
+		if key == "Childs"{
+			return MO_Replace
+		}
+		return MO_Normal
+	})
 	fmt.Println(v1.String())
 
 	//数组合并
@@ -107,7 +112,7 @@ func TestDxValue_MergeWith(t *testing.T) {
 	varr2.SetIndexString(1,"People")
 	varr2.SetIndexInt(2,40)
 
-	varr1.MergeWith(varr2)
+	varr1.MergeWith(varr2,nil)
 	fmt.Println(varr1.String())
 
 }

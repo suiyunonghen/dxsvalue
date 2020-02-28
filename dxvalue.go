@@ -1018,14 +1018,34 @@ func (v *DxValue)SetKeyvalue(Name string,value interface{},cache *ValueCache)  {
 	case *[]byte:
 		v.SetKeyCached(Name,VT_Binary,cache).SetBinary(*realv)
 	case map[string]interface{}:
-		newv := v.SetKeyCached(Name,VT_Object,v.ownercache)
+		newv := v.SetKeyCached(Name,VT_Object,cache)
 		for key,objv := range realv{
 			newv.SetKeyvalue(key,objv,cache)
 		}
 	case *map[string]interface{}:
-		newv := v.SetKeyCached(Name,VT_Object,v.ownercache)
+		newv := v.SetKeyCached(Name,VT_Object,cache)
 		for key,objv := range *realv{
 			newv.SetKeyvalue(key,objv,cache)
+		}
+	case map[string]string:
+		newv := v.SetKeyCached(Name,VT_Object,cache)
+		for key,objv := range realv{
+			newv.SetKeyCached(key,VT_String,cache).SetString(objv)
+		}
+	case *map[string]string:
+		newv := v.SetKeyCached(Name,VT_Object,v.ownercache)
+		for key,objv := range *realv{
+			newv.SetKeyCached(key,VT_String,cache).SetString(objv)
+		}
+	case map[string]int:
+		newv := v.SetKeyCached(Name,VT_Object,cache)
+		for key,objv := range realv{
+			newv.SetKeyCached(key,VT_Int,cache).SetInt(int64(objv))
+		}
+	case *map[string]int:
+		newv := v.SetKeyCached(Name,VT_Object,cache)
+		for key,objv := range *realv{
+			newv.SetKeyCached(key,VT_Int,cache).SetInt(int64(objv))
 		}
 	default:
 		//判断一下是否是结构体
@@ -1038,7 +1058,7 @@ func (v *DxValue)SetKeyvalue(Name string,value interface{},cache *ValueCache)  {
 		}
 		switch reflectv.Kind(){
 		case reflect.Struct:
-			newv := v.SetKeyCached(Name,VT_Object,v.ownercache)
+			newv := v.SetKeyCached(Name,VT_Object,cache)
 			rtype := reflectv.Type()
 			for i := 0;i < rtype.NumField();i++{
 				sfield := rtype.Field(i)
@@ -1065,6 +1085,46 @@ func (v *DxValue)SetKeyvalue(Name string,value interface{},cache *ValueCache)  {
 				default:
 					if fv.CanInterface(){
 						newv.SetKeyvalue(sfield.Name,fv.Interface(),cache)
+					}
+				}
+			}
+		case reflect.Map:
+			mapkeys := reflectv.MapKeys()
+			if len(mapkeys) == 0{
+				return
+			}
+			kv := mapkeys[0]
+			if kv.Type().Kind() == reflect.Ptr{
+				kv = kv.Elem()
+			}
+			if kv.Kind() != reflect.String{
+				return
+			}
+			newv := v.SetKeyCached(Name,VT_Object,cache)
+			for _,kv = range mapkeys{
+				rvalue := reflectv.MapIndex(kv)
+				if rvalue.Kind() == reflect.Ptr{
+					rvalue = rvalue.Elem()
+				}
+				switch rvalue.Kind() {
+				case reflect.Int,reflect.Int8,reflect.Int16,reflect.Int32,reflect.Int64,
+					reflect.Uint,reflect.Uint8,reflect.Uint16,reflect.Uint32,reflect.Uint64:
+					newv.SetKeyCached(kv.String(),VT_Int,cache).SetInt(rvalue.Int())
+				case reflect.Bool:
+					if rvalue.Bool(){
+						newv.SetKeyValue(kv.String(),valueTrue)
+					}else{
+						newv.SetKeyValue(kv.String(),valueFalse)
+					}
+				case reflect.Float32:
+					newv.SetKeyCached(kv.String(),VT_Double,cache).SetFloat(float32(rvalue.Float()))
+				case reflect.Float64:
+					newv.SetKeyCached(kv.String(),VT_Double,cache).SetDouble(rvalue.Float())
+				case reflect.String:
+					newv.SetKeyCached(kv.String(),VT_String,cache).SetString(rvalue.String())
+				default:
+					if rvalue.CanInterface(){
+						newv.SetKeyvalue(kv.String(),rvalue.Interface(),cache)
 					}
 				}
 			}

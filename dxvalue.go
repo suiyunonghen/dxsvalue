@@ -924,7 +924,7 @@ func (v *DxValue)SetKeyCached(Name string,tp ValueType,c *ValueCache)*DxValue  {
 	if idx >= 0{
 		result := v.fobject.strkvs[idx].V
 		if result == valueTrue || result == valueFalse || result == valueINF || result == valueNAN || result == valueNull{
-			result = NewValue(tp)
+			result = c.getValue(tp)
 			v.fobject.strkvs[idx].V = result
 		}else if result.DataType != tp {
 			result.Reset(tp)

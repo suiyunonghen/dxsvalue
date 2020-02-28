@@ -25,7 +25,46 @@ func readCode(b []byte)(MsgPackCode,[]byte,error)  {
 	return CodeUnkonw,nil,ErrUnKnownCode
 }
 
-func parseMsgPackObject(code MsgPackCode,b []byte,c *cache)(result *DxValue,tail []byte,err error)  {
+func parseMsgPackObject2v(code MsgPackCode,b []byte,v *DxValue)(tail []byte,err error)  {
+	c := v.ownercache
+	maplen,b,err := parseMapLen(code,b)
+	if err != nil{
+		return b,err
+	}
+	if maplen == 0{
+		return b,nil
+	}
+	if !MsgPackCode(b[0]).IsStr(){
+		return b,ErrMapKey
+	}
+	var rawbyte []byte
+	var key string
+	var value *DxValue
+	for i := 0;i<maplen;i++{
+		code,b,err = readCode(b)
+		if err != nil{
+			return b,err
+		}
+		rawbyte,b,err = parseRawStringByte(code,b)
+		if err != nil{
+			return b,err
+		}
+		if c != nil{
+			key = string(rawbyte)
+		}else{
+			key = string(rawbyte)
+		}
+		value,b,err = parseMsgPackValue(b,c)
+		if err != nil{
+			return b,err
+		}
+		v.SetKeyValue(key,value)
+	}
+	tail = b
+	return
+}
+
+func parseMsgPackObject(code MsgPackCode,b []byte,c *ValueCache)(result *DxValue,tail []byte,err error)  {
 	maplen,b,err := parseMapLen(code,b)
 	if err != nil{
 		return nil,b,err
@@ -68,7 +107,7 @@ func parseMsgPackObject(code MsgPackCode,b []byte,c *cache)(result *DxValue,tail
 }
 
 
-func parseMsgPackArray(code MsgPackCode,b []byte,c *cache)(result *DxValue,tail []byte,err error){
+func parseMsgPackArray(code MsgPackCode,b []byte,c *ValueCache)(result *DxValue,tail []byte,err error){
 	arrlen,b,err := parseArrLen(code,b)
 	if err != nil{
 		return nil,b,err
@@ -89,14 +128,41 @@ func parseMsgPackArray(code MsgPackCode,b []byte,c *cache)(result *DxValue,tail 
 	return result,b,err
 }
 
-func parseMsgPackValue(b []byte,c *cache)(result *DxValue,tail []byte,err error)  {
+func parseMsgPackArray2V(code MsgPackCode,b []byte,v *DxValue)(tail []byte,err error){
+	c := v.ownercache
+	arrlen,b,err := parseArrLen(code,b)
+	if err != nil{
+		return b,err
+	}
+	if arrlen == 0{
+		return b,nil
+	}
+	var value *DxValue
+	v.Reset(VT_Array)
+	for i := 0;i<arrlen;i++{
+		value,b,err = parseMsgPackValue(b,c)
+		if err != nil{
+			return b,err
+		}
+		v.farr = append(v.farr,value)
+	}
+	return b,err
+}
+
+func parseMsgPackValue(b []byte,c *ValueCache)(result *DxValue,tail []byte,err error)  {
 	code,b,err := readCode(b)
 	if err != nil{
 		return nil,b,err
 	}
 	switch  {
 	case code.IsStr():
-		return parseString(code,b,c)
+		strbt,tail,err := parseString(code,b)
+		if err != nil{
+			return nil,tail,err
+		}
+		result = c.getValue(VT_String)
+		result.fstrvalue = string(strbt)
+		return result,tail,nil
 	case code.IsArray():
 		return parseMsgPackArray(code,b,c)
 	case code.IsMap():
@@ -199,11 +265,7 @@ func parseMsgPackValue(b []byte,c *cache)(result *DxValue,tail []byte,err error)
 		if blen <= haslen{
 			tail = b[blen:]
 			result = c.getValue(VT_Binary)
-			if c != nil{
-				result.fbinary = b[: blen]
-			}else{
-				result.fbinary = append(result.fbinary,b[:blen]...)
-			}
+			result.fbinary = append(result.fbinary[:0],b[:blen]...)
 			return result,tail,nil
 		}
 		return nil,b, fmt.Errorf("msgpack: binay data truncated,totalen=%d,realLen=%d",blen,haslen)
@@ -241,18 +303,159 @@ func parseMsgPackValue(b []byte,c *cache)(result *DxValue,tail []byte,err error)
 			}
 		}else{
 			result = c.getValue(VT_ExBinary)
-			if c != nil{
-				result.fbinary = b[:exlen+1] //多一个extype
-			}else{
-				result.fbinary = append(result.fbinary,b[:exlen+1]...)
+			result.fbinary = append(result.fbinary[:0],b[:exlen+1]...)
+		}
+	}
+	return
+}
+
+func parseMsgPack2Value(b []byte,v *DxValue)(tail []byte,err error)  {
+	code,b,err := readCode(b)
+	if err != nil{
+		return b,err
+	}
+	switch  {
+	case code.IsStr():
+		strbt,tail,err := parseString(code,b)
+		if err != nil{
+			return tail,err
+		}
+		v.fstrvalue = string(strbt)
+	case code.IsArray():
+		return parseMsgPackArray2V(code,b,v)
+	case code.IsMap():
+		return parseMsgPackObject2v(code,b,v)
+	case code.IsFixedNum():
+		v.SetInt(int64(int8(code)))
+		return b,nil
+	case code == CodeUint8:
+		ub,b,err := parseUint8(b)
+		if err != nil{
+			return tail,err
+		}
+		v.SetInt(int64(ub))
+		return b,nil
+	case code == CodeInt8:
+		ub,b,err := parseUint8(b)
+		if err != nil{
+			return b,err
+		}
+		v.SetInt(int64(int8(ub)))
+		return b,nil
+	case code == CodeUint16:
+		u16,b,err := parseUint16(b)
+		if err != nil{
+			return b,err
+		}
+		v.SetInt(int64(u16))
+		return b,nil
+	case code == CodeInt16:
+		u16,b,err := parseUint16(b)
+		if err != nil{
+			return b,err
+		}
+		v.SetInt(int64(int16(u16)))
+		return b,nil
+	case code == CodeUint32:
+		u32,b,err := parseUint32(b)
+		if err != nil{
+			return tail,err
+		}
+		v.SetInt(int64(u32))
+		return b,nil
+	case code == CodeInt32:
+		u32,b,err := parseUint32(b)
+		if err != nil{
+			return b,err
+		}
+		v.SetInt(int64(int32(u32)))
+		return b,nil
+	case code == CodeInt64 || code == CodeUint64:
+		u64,b,err := parseUint64(b)
+		if err != nil{
+			return b,err
+		}
+		v.SetInt(int64(u64))
+		return b,nil
+	case code == CodeFloat:
+		u32,b,err := parseUint32(b)
+		if err != nil{
+			return b,err
+		}
+		v.SetFloat(*(*float32)(unsafe.Pointer(&u32)))
+		return b,nil
+	case code == CodeDouble:
+		u64,b,err := parseUint64(b)
+		if err != nil{
+			return b,err
+		}
+		v.SetDouble(*(*float64)(unsafe.Pointer(&u64)))
+		return b,nil
+	case code == CodeTrue:
+		v.Reset(VT_True)
+		tail = b
+		return
+	case code == CodeFalse:
+		v.Reset(VT_False)
+		tail = b
+		return
+	case code == CodeNil:
+		v.Reset(VT_NULL)
+		tail = b
+		return
+	case code.IsBin():
+		//二进制
+		blen,b,err := parseLen(code,b)
+		if err != nil{
+			return b,err
+		}
+		haslen := len(b)
+		if blen <= haslen{
+			tail = b[blen:]
+			v.fbinary = append(v.fbinary,b[:blen]...)
+			return tail,nil
+		}
+		return b, fmt.Errorf("msgpack: binay data truncated,totalen=%d,realLen=%d",blen,haslen)
+	case code.IsExt():
+		//扩展，需要判定一下这个扩展是否是日期时间格式
+		exlen,b,err := parseExtLen(code,b)
+		if err != nil{
+			return b,err
+		}
+		haslen := len(b)
+		if haslen < exlen{
+			return b, fmt.Errorf("msgpack: binay data truncated,totalen=%d,realLen=%d",exlen,haslen)
+		}
+		tail = b[exlen+1:]
+		if code.IsTime(b[0]){
+			//日期时间
+			switch code {
+			case CodeFixExt4:
+				sec := binary.BigEndian.Uint32(b[1:])
+				t := time.Unix(int64(sec), 0)
+				v.SetDouble(float64(DxCommonLib.Time2DelphiTime(&t)))
+			case CodeFixExt8:
+				//64位时间格式
+				sec := binary.BigEndian.Uint64(b[1:])
+				nsec := int64(sec >> 34)
+				sec &= 0x00000003ffffffff
+				t := time.Unix(int64(sec), nsec)
+				v.SetDouble(float64(DxCommonLib.Time2DelphiTime(&t)))
+			default:
+				nsec := binary.BigEndian.Uint32(b[1:])
+				sec := binary.BigEndian.Uint64(b[5:])
+				t := time.Unix(int64(sec), int64(nsec))
+				v.SetDouble(float64(DxCommonLib.Time2DelphiTime(&t)))
 			}
+		}else{
+			v.fbinary = append(v.fbinary,b[:exlen+1]...)
 		}
 	}
 	return
 }
 
 func NewValueFromMsgPack(b []byte,useCache bool)(*DxValue,error)  {
-	var c *cache
+	var c *ValueCache
 	if !useCache{
 		c = nil
 	}else{
@@ -264,6 +467,8 @@ func NewValueFromMsgPack(b []byte,useCache bool)(*DxValue,error)  {
 	}
 	return v,nil
 }
+
+
 
 func Value2MsgPack(v *DxValue,dst []byte)[]byte  {
 	if dst == nil{

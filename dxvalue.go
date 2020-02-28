@@ -3,6 +3,7 @@ package dxsvalue
 import (
 	"bytes"
 	"github.com/suiyunonghen/DxCommonLib"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -140,10 +141,10 @@ func (obj *VObject)UnEscapestrs()  {
 type	DxValue struct {
 	DataType	ValueType
 	fobject		VObject
-	ownercache	*cache
+	ownercache	*ValueCache
 	simpleV		[8]byte
-	fbinary		[]byte		//二进制数据
 	fstrvalue	string
+	fbinary		[]byte		//二进制数据
 	farr		[]*DxValue
 }
 
@@ -165,6 +166,76 @@ func NewValue(tp ValueType)*DxValue  {
 	return result
 }
 
+func (v *DxValue)ValueCache()*ValueCache  {
+	return v.ownercache
+}
+
+func (v *DxValue)Clear()  {
+	if v.ownercache != nil{
+		v.ownercache.Reset(false) //根不回收
+	}
+	v.fobject.keysUnescaped = false
+	switch v.DataType {
+	case VT_Object:
+		for i := 0; i < len(v.fobject.strkvs);i++{
+			v.fobject.strkvs[i].V = nil
+			v.fobject.strkvs[i].K = ""
+		}
+		v.fobject.strkvs = v.fobject.strkvs[:0]
+	case VT_Array:
+		v.fobject.strkvs = nil
+		for i := 0;i<len(v.farr);i++{
+			v.farr[i] = nil
+		}
+		v.farr = v.farr[:0]
+	default:
+		v.farr = nil
+		v.fobject.strkvs = nil
+	}
+	v.fbinary = nil
+	v.fstrvalue = ""
+}
+
+func NewObject(cached bool)*DxValue  {
+	var result *DxValue
+	if cached{
+		c := &ValueCache{
+			fisroot:	false,
+			Value:    make([]DxValue,0,8),
+		}
+		c.Value = append(c.Value, DxValue{DataType:   VT_Object,
+			ownercache: c,})
+		result = &c.Value[len(c.Value)-1]
+	}else{
+		result = &DxValue{
+			DataType:   VT_Object,
+			ownercache: nil,
+		}
+	}
+	result.fobject.strkvs =  make([]strkv,0,8)
+	return result
+}
+
+func NewArray(cached bool)*DxValue  {
+	var result *DxValue
+	if cached{
+		c := &ValueCache{
+			fisroot:	false,
+			Value:    make([]DxValue,0,8),
+		}
+		c.Value = append(c.Value, DxValue{DataType:   VT_Object,
+			ownercache: c,})
+		result = &c.Value[len(c.Value)-1]
+	}else{
+		result = &DxValue{
+			DataType:   VT_Object,
+			ownercache: nil,
+		}
+	}
+	result.farr =  make([]*DxValue,0,8)
+	return result
+}
+
 func NewCacheValue(tp ValueType)*DxValue  {
 	switch tp {
 	case VT_True:
@@ -183,16 +254,26 @@ func NewCacheValue(tp ValueType)*DxValue  {
 	return c.getValue(tp)
 }
 
+func (v *DxValue)LoadFromMsgPack(b []byte)error  {
+	_,err := parseMsgPack2Value(b,v)
+	return err
+}
+
+func (v *DxValue)LoadFromJson(b []byte)error  {
+	_,err := parseJson2Value(b,v)
+	return err
+}
+
 func (v *DxValue)Reset(dt ValueType)  {
 	if v == valueNAN || v == valueINF || v == valueTrue || v == valueFalse || v == valueNull{
 		return
 	}
-	v.fobject.keysUnescaped = false
 	v.DataType = dt
+	v.fobject.keysUnescaped = false
 	switch dt {
 	case VT_Object:
 		if v.fobject.strkvs == nil{
-			v.fobject.strkvs = make([]strkv,0,32)
+			v.fobject.strkvs = make([]strkv,0,8)
 		}else{
 			for i := 0; i < len(v.fobject.strkvs);i++{
 				v.fobject.strkvs[i].V = nil
@@ -204,7 +285,7 @@ func (v *DxValue)Reset(dt ValueType)  {
 	case VT_Array:
 		v.fobject.strkvs = nil
 		if v.fobject.strkvs == nil{
-			v.fobject.strkvs = make([]strkv,0,32)
+			v.fobject.strkvs = make([]strkv,0,8)
 		}else{
 			for i := 0;i<len(v.farr);i++{
 				v.farr[i] = nil
@@ -395,7 +476,7 @@ func (v *DxValue)Int()int64  {
 	return 0
 }
 
-func (v *DxValue)clone(c *cache)*DxValue  {
+func (v *DxValue)clone(c *ValueCache)*DxValue  {
 	if v.DataType >= VT_True{ //系统固定的值不变更
 		return v
 	}
@@ -423,7 +504,7 @@ func (v *DxValue)clone(c *cache)*DxValue  {
 }
 
 func (v *DxValue)Clone(usecache bool)*DxValue  {
-	var c *cache
+	var c *ValueCache
 	if usecache{
 		c = getCache()
 	}else{
@@ -614,9 +695,9 @@ func (v *DxValue)SetIndexDouble(idx int,value float64)  {
 
 func (v *DxValue)SetKeyBool(Name string,value bool)  {
 	if value{
-		v.SetKey(Name,VT_True)
+		v.SetKeyValue(Name,valueTrue)
 	}else{
-		v.SetKey(Name,VT_False)
+		v.SetKeyValue(Name,valueFalse)
 	}
 }
 
@@ -829,7 +910,7 @@ func (v *DxValue)GoTimeByPath(DefaultValue time.Time, paths ...string)time.Time 
 	return result.GoTime()
 }
 
-func (v *DxValue)SetKey(Name string,tp ValueType)*DxValue  {
+func (v *DxValue)SetKeyCached(Name string,tp ValueType,c *ValueCache)*DxValue  {
 	if v.DataType == VT_Array{
 		idx := DxCommonLib.StrToIntDef(Name,-1)
 		if idx != -1{
@@ -852,8 +933,144 @@ func (v *DxValue)SetKey(Name string,tp ValueType)*DxValue  {
 	}
 	kv := v.fobject.getKv()
 	kv.K = Name
-	kv.V = NewValue(tp)
+	kv.V = c.getValue(tp)
 	return kv.V
+}
+
+func (v *DxValue)SetKey(Name string,tp ValueType)*DxValue  {
+	return v.SetKeyCached(Name,tp,v.ownercache)
+}
+
+func (v *DxValue)SetKeyvalue(Name string,value interface{},cache *ValueCache)  {
+	switch realv := value.(type) {
+	case int:
+		v.SetKeyCached(Name,VT_Int,cache).SetInt(int64(realv))
+	case *int:
+		v.SetKeyCached(Name,VT_Int,cache).SetInt(int64(*realv))
+	case uint:
+		v.SetKeyCached(Name,VT_Int,cache).SetInt(int64(realv))
+	case *uint:
+		v.SetKeyCached(Name,VT_Int,cache).SetInt(int64(*realv))
+	case int32:
+		v.SetKeyCached(Name,VT_Int,cache).SetInt(int64(realv))
+	case *int32:
+		v.SetKeyCached(Name,VT_Int,cache).SetInt(int64(*realv))
+	case uint32:
+		v.SetKeyCached(Name,VT_Int,cache).SetInt(int64(realv))
+	case *uint32:
+		v.SetKeyCached(Name,VT_Int,cache).SetInt(int64(*realv))
+	case int16:
+		v.SetKeyCached(Name,VT_Int,cache).SetInt(int64(realv))
+	case *int16:
+		v.SetKeyCached(Name,VT_Int,cache).SetInt(int64(*realv))
+	case uint16:
+		v.SetKeyCached(Name,VT_Int,cache).SetInt(int64(realv))
+	case *uint16:
+		v.SetKeyCached(Name,VT_Int,cache).SetInt(int64(*realv))
+	case int8:
+		v.SetKeyCached(Name,VT_Int,cache).SetInt(int64(realv))
+	case *int8:
+		v.SetKeyCached(Name,VT_Int,cache).SetInt(int64(*realv))
+	case uint8:
+		v.SetKeyCached(Name,VT_Int,cache).SetInt(int64(realv))
+	case *uint8:
+		v.SetKeyCached(Name,VT_Int,cache).SetInt(int64(*realv))
+	case int64:
+		v.SetKeyCached(Name,VT_Int,cache).SetInt(realv)
+	case *int64:
+		v.SetKeyCached(Name,VT_Int,cache).SetInt(int64(*realv))
+	case uint64:
+		v.SetKeyCached(Name,VT_Int,cache).SetInt(int64(realv))
+	case *uint64:
+		v.SetKeyCached(Name,VT_Int,cache).SetInt(int64(*realv))
+	case string:
+		v.SetKeyCached(Name,VT_String,cache).SetString(realv)
+	case *DxValue:
+		v.SetKeyValue(Name,realv)
+	case DxValue:
+		v.SetKeyValue(Name,&realv)
+	case bool:
+		if realv{
+			v.SetKeyValue(Name,valueTrue)
+		}else{
+			v.SetKeyValue(Name,valueFalse)
+		}
+	case *bool:
+		if *realv{
+			v.SetKeyValue(Name,valueTrue)
+		}else{
+			v.SetKeyValue(Name,valueFalse)
+		}
+	case time.Time:
+		v.SetKeyCached(Name,VT_DateTime,cache).SetDouble(float64(DxCommonLib.Time2DelphiTime(&realv)))
+	case *time.Time:
+		v.SetKeyCached(Name,VT_DateTime,cache).SetDouble(float64(DxCommonLib.Time2DelphiTime(realv)))
+	case float32:
+		v.SetKeyCached(Name,VT_Float,cache).SetFloat(realv)
+	case *float32:
+		v.SetKeyCached(Name,VT_Float,cache).SetFloat(*realv)
+	case float64:
+		v.SetKeyCached(Name,VT_Double,cache).SetDouble(realv)
+	case *float64:
+		v.SetKeyCached(Name,VT_Double,cache).SetDouble(*realv)
+	case []byte:
+		v.SetKeyCached(Name,VT_Binary,cache).SetBinary(realv)
+	case *[]byte:
+		v.SetKeyCached(Name,VT_Binary,cache).SetBinary(*realv)
+	case map[string]interface{}:
+		newv := v.SetKeyCached(Name,VT_Object,v.ownercache)
+		for key,objv := range realv{
+			newv.SetKeyvalue(key,objv,cache)
+		}
+	case *map[string]interface{}:
+		newv := v.SetKeyCached(Name,VT_Object,v.ownercache)
+		for key,objv := range *realv{
+			newv.SetKeyvalue(key,objv,cache)
+		}
+	default:
+		//判断一下是否是结构体
+		reflectv := reflect.ValueOf(value)
+		if !reflectv.IsValid(){
+			return
+		}
+		if reflectv.Kind() == reflect.Ptr{
+			reflectv = reflectv.Elem()
+		}
+		switch reflectv.Kind(){
+		case reflect.Struct:
+			newv := v.SetKeyCached(Name,VT_Object,v.ownercache)
+			rtype := reflectv.Type()
+			for i := 0;i < rtype.NumField();i++{
+				sfield := rtype.Field(i)
+				fv := reflectv.Field(i)
+				if fv.Kind() == reflect.Ptr{
+					fv = fv.Elem()
+				}
+				switch fv.Kind() {
+				case reflect.Int,reflect.Int8,reflect.Int16,reflect.Int32,reflect.Int64,
+					reflect.Uint,reflect.Uint8,reflect.Uint16,reflect.Uint32,reflect.Uint64:
+					newv.SetKeyCached(sfield.Name,VT_Int,cache).SetInt(fv.Int())
+				case reflect.Bool:
+					if fv.Bool(){
+						newv.SetKeyValue(sfield.Name,valueTrue)
+					}else{
+						newv.SetKeyValue(sfield.Name,valueFalse)
+					}
+				case reflect.Float32:
+					newv.SetKeyCached(sfield.Name,VT_Double,cache).SetFloat(float32(fv.Float()))
+				case reflect.Float64:
+					newv.SetKeyCached(sfield.Name,VT_Double,cache).SetDouble(fv.Float())
+				case reflect.String:
+					newv.SetKeyCached(sfield.Name,VT_String,cache).SetString(fv.String())
+				default:
+					if fv.CanInterface(){
+						newv.SetKeyvalue(sfield.Name,fv.Interface(),cache)
+					}
+				}
+			}
+		}
+
+	}
 }
 
 func (v *DxValue)SetKeyValue(Name string,value *DxValue)  {

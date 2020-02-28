@@ -58,7 +58,7 @@ func (err *ErrorParseJson)Error()string  {
 
 //解析从fastjson中的代码修改
 //如果成功，tail中返回的是剩下的字节内容，否则发生错误的话，tail中返回的是当前正在解析的数据
-func parseJsonObj(b []byte,c *cache)(result *DxValue,tail []byte,err error)  {
+func parseJsonObj(b []byte,c *ValueCache)(result *DxValue,tail []byte,err error)  {
 	oldb := b
 	b,skiplen := skipWB(b)
 	if len(b) == 0{
@@ -87,12 +87,14 @@ func parseJsonObj(b []byte,c *cache)(result *DxValue,tail []byte,err error)  {
 		kv.K, b, err = parseJsonKey(b[1:])
 		if err != nil{
 			result = nil
+			tail = b
 			return
 		}
 		oldb = b
 		b,skiplen = skipWB(b)
 		if len(b) == 0 || b[0] != ':' {
 			result = nil
+			tail = b
 			err = &ErrorParseJson{
 				Type:         JET_NoKVSplit,
 				InvalidIndex: skiplen,
@@ -106,12 +108,14 @@ func parseJsonObj(b []byte,c *cache)(result *DxValue,tail []byte,err error)  {
 		kv.V, b, err = parseJsonValue(b,c)
 		if err != nil {
 			result = nil
+			tail = b
 			return
 		}
 		oldb = b
 		b,skiplen = skipWB(b)
 		if len(b) == 0 {
 			result = nil
+			tail = b
 			err = &ErrorParseJson{
 				Type:         JET_NoObjBack,
 				InvalidIndex: skiplen,
@@ -132,6 +136,78 @@ func parseJsonObj(b []byte,c *cache)(result *DxValue,tail []byte,err error)  {
 			parseB:       oldb,
 		}
 		return nil, oldb, err
+	}
+}
+
+func parseJsonObj2V(b []byte,v *DxValue)(tail []byte,err error)  {
+	oldb := b
+	b,skiplen := skipWB(b)
+	if len(b) == 0{
+		return oldb,&ErrorParseJson{
+			Type:         JET_NoObjBack,
+			InvalidIndex: skiplen,
+			parseB:oldb,
+		}
+	}
+	if b[0] == '}'{
+		tail = b[1:]
+		return
+	}
+	for{
+		kv := v.fobject.getKv()
+		oldb := b
+		b,skiplen = skipWB(b)
+		if len(b) == 0 || b[0] != '"' {
+			return oldb, &ErrorParseJson{
+				Type:         JET_NoKeyStart,
+				InvalidIndex: skiplen,
+				parseB:oldb,
+			}
+		}
+		kv.K, b, err = parseJsonKey(b[1:])
+		if err != nil{
+			return b,err
+		}
+		oldb = b
+		b,skiplen = skipWB(b)
+		if len(b) == 0 || b[0] != ':' {
+			err = &ErrorParseJson{
+				Type:         JET_NoKVSplit,
+				InvalidIndex: skiplen,
+				parseB:       oldb,
+			}
+			return
+		}
+		oldb = b
+		b,skiplen = skipWB(b[1:])
+		//解析Value
+		kv.V, b, err = parseJsonValue(b,v.ownercache)
+		if err != nil {
+			return b,err
+		}
+		oldb = b
+		b,skiplen = skipWB(b)
+		if len(b) == 0 {
+			err = &ErrorParseJson{
+				Type:         JET_NoObjBack,
+				InvalidIndex: skiplen,
+				parseB:       oldb,
+			}
+			return b,err
+		}
+		if b[0] == ',' {
+			b = b[1:]
+			continue
+		}
+		if b[0] == '}' {
+			return b[1:], nil
+		}
+		err = &ErrorParseJson{
+			Type:         JET_NoValueSplit,
+			InvalidIndex: skiplen,
+			parseB:       oldb,
+		}
+		return oldb, err
 	}
 }
 
@@ -192,7 +268,7 @@ func parseJsonString(b []byte) (value string, tail []byte, err error) {
 	}
 }
 
-func parseJsonArray(b []byte,c *cache)(result *DxValue,tail []byte,err error)  {
+func parseJsonArray(b []byte,c *ValueCache)(result *DxValue,tail []byte,err error)  {
 	oldb := b
 	b,skiplen := skipWB(b)
 	if len(b) == 0 {
@@ -243,6 +319,57 @@ func parseJsonArray(b []byte,c *cache)(result *DxValue,tail []byte,err error)  {
 	}
 }
 
+
+func parseJsonArray2V(b []byte,result *DxValue)(tail []byte,err error)  {
+	oldb := b
+	b,skiplen := skipWB(b)
+	if len(b) == 0 {
+		err = &ErrorParseJson{
+			Type:         JET_NoArrBack,
+			InvalidIndex: skiplen,
+			parseB:       oldb,
+		}
+		return oldb, err
+	}
+	if b[0] == ']' {
+		return b[1:], nil
+	}
+	var v *DxValue
+	for {
+		oldb = b
+		b,skiplen = skipWB(b)
+		v, b, err = parseJsonValue(b,result.ownercache)
+		if err != nil {
+			return b,err
+		}
+		result.farr = append(result.farr, v)
+
+		oldb = b
+		b,skiplen = skipWB(b)
+		if len(b) == 0 {
+			return oldb, &ErrorParseJson{
+				Type:         JET_NoArrBack,
+				InvalidIndex: skiplen,
+				parseB:       oldb,
+			}
+		}
+		if b[0] == ',' {
+			b = b[1:]
+			continue
+		}
+		if b[0] == ']' {
+			b = b[1:]
+			return b, nil
+		}
+		err = &ErrorParseJson{
+			Type:         JET_NoValueSplit,
+			InvalidIndex: skiplen,
+			parseB:       oldb,
+		}
+		return oldb, err
+	}
+}
+
 var(
 	truebyte = []byte("true")
 	falebyte = []byte("false")
@@ -258,7 +385,7 @@ var(
 
 
 func NewValueFromJson(b []byte,useCache bool)(*DxValue,error)  {
-	var c *cache
+	var c *ValueCache
 	if !useCache{
 		c = nil
 	}else{
@@ -281,7 +408,7 @@ func NewValueFromJson(b []byte,useCache bool)(*DxValue,error)  {
 	return v,nil
 }
 
-func parseJsonValue(b []byte,c *cache)(result *DxValue,tail []byte,err error)  {
+func parseJsonValue(b []byte,c *ValueCache)(result *DxValue,tail []byte,err error)  {
 	if len(b) == 0{
 		return nil,nil,&ErrorParseJson{
 			Type:         0,
@@ -337,7 +464,102 @@ func parseJsonValue(b []byte,c *cache)(result *DxValue,tail []byte,err error)  {
 	return parseJsonNum(b,c)
 }
 
-func parseJsonNum(b []byte,c *cache) (num *DxValue, tail []byte,err error) {
+func parseJson2Value(b []byte,v *DxValue)(tail []byte,err error)  {
+	if len(b) == 0{
+		return nil,&ErrorParseJson{
+			Type:         0,
+			InvalidIndex: 0,
+			parseB:       b,
+		}
+	}
+	if b[0] == '{'{
+		return parseJsonObj2V(b[1:],v)
+	}
+	if b[0] == '[' {
+		return parseJsonArray2V(b[1:],v)
+	}
+	if b[0] == '"' {
+		ss, tail, err := parseJsonString(b[1:])
+		if err != nil {
+			return tail, err
+		}
+		//先判断一下是否是Json的日期格式
+		dt := DxCommonLib.ParserJsonTime(ss)
+		if dt < 0{
+			v.Reset(VT_RawString)
+			v.fstrvalue = ss
+		}else{
+			v.Reset(VT_DateTime)
+			v.SetDouble(float64(dt))
+		}
+		return tail, nil
+	}
+	if b[0] == 't' {
+		if len(b) < 4 || bytes.Compare(b[:4],truebyte) != 0 {
+			return b, errors.New("无效的Json格式")
+		}
+		v.Reset(VT_True)
+		return  b[4:], nil
+	}
+	if b[0] == 'f' {
+		if len(b) < 5 || bytes.Compare(b[:5],falebyte) != 0 {
+			return b,errors.New("无效的Json格式")
+		}
+		v.Reset(VT_False)
+		return b[5:], nil
+	}
+	if b[0] == 'n' {
+		blen := len(b)
+		if blen < 4 || bytes.Compare(b[:4],nullbyte) != 0 {
+			if blen >= 3 && bytes.Compare(b[:3],nanbyte) != 0 {
+				v.Reset(VT_NAN)
+				return  b[3:], nil
+			}
+			return  b,errors.New("无效的Json格式")
+		}
+		v.Reset(VT_NULL)
+		return b[4:], nil
+	}
+	return parseJsonNum2V(b,v)
+}
+
+func parseJsonNum2V(b []byte,num *DxValue) (tail []byte,err error) {
+	isfloat := false
+	for i := 0; i < len(b); i++ {
+		ch := b[i]
+		isfloat = ch == '.'
+		if (ch >= '0' && ch <= '9') || isfloat || ch == '-' || ch == 'e' || ch == 'E' || ch == '+' {
+			continue
+		}
+		if i == 0 || i == 1 && (b[0] == '-' || b[0] == '+') {
+			if len(b[i:]) >= 3 {
+				xs := b[i : i+3]
+				if bytes.EqualFold(xs, infbyte) {
+					num.Reset(VT_INF)
+					return b[i+3:], nil
+				}
+				if bytes.EqualFold(xs, nanbyte){
+					num.Reset(VT_NAN)
+					return b[i+3:], nil
+				}
+			}
+			return b, errors.New("无效的Json格式")
+		}
+		ns := b[:i]
+		b = b[i:]
+		if isfloat{
+			v := DxCommonLib.StrToFloatDef(DxCommonLib.FastByte2String(ns),0)
+			num.SetFloat(float32(v))
+		}else{
+			v := DxCommonLib.StrToIntDef(DxCommonLib.FastByte2String(ns),0)
+			num.SetInt(v)
+		}
+		return b, nil
+	}
+	return nil, nil
+}
+
+func parseJsonNum(b []byte,c *ValueCache) (num *DxValue, tail []byte,err error) {
 	isfloat := false
 	for i := 0; i < len(b); i++ {
 		ch := b[i]

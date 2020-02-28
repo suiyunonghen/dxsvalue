@@ -129,20 +129,17 @@ func parseRawStringByte(code MsgPackCode,b []byte)(result []byte,tail []byte,err
 	return nil,b,fmt.Errorf("msgpack: string data truncated,totalen=%d,realLen=%d",stlen,haslen)
 }
 
-func parseString(code MsgPackCode,b []byte,c *cache)(result *DxValue,tail []byte,err error)  {
+func parseString(code MsgPackCode,b []byte)(resultbt []byte,tail []byte,err error)  {
 	stlen,b,err := parseLen(code,b)
 	if err != nil{
 		return nil,b,ErrParseObjLen
 	}
 	if stlen <= 0 {
-		result = c.getValue(VT_String)
-		return result,b, nil
+		return nil,b, nil
 	}
 	haslen := len(b)
 	if haslen >= stlen{
-		result = c.getValue(VT_String)
-		result.fstrvalue = string(b[:stlen])
-		return result,b[stlen:],nil
+		return b[:stlen],b[stlen:],nil
 	}
 	return nil,b,fmt.Errorf("msgpack: string data truncated,totalen=%d,realLen=%d",stlen,haslen)
 }

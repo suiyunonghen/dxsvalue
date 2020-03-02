@@ -41,7 +41,7 @@ func BenchmarkJsonParse(b *testing.B) {
 		b.SetBytes(int64(len(buf)))
 		b.RunParallel(func(pb *testing.PB) {
 			for pb.Next() {
-				v,_ := NewValueFromJson(buf,false)
+				v,_ := NewValueFromJson(buf,false,false)
 				Value2Json(v,false,nil)
 			}
 		})
@@ -84,7 +84,7 @@ func BenchmarkMsgPackParse(b *testing.B) {
 		b.SetBytes(int64(len(buf)))
 		b.RunParallel(func(pb *testing.PB) {
 			for pb.Next() {
-				v,_ := NewValueFromMsgPack(buf,false)
+				v,_ := NewValueFromMsgPack(buf,false,false)
 				Value2MsgPack(v,nil)
 			}
 		})

@@ -22,7 +22,7 @@ func TestDxValue_ForcePath(t *testing.T) {
 	fmt.Println(v.String())
 	v.SetIndexString(3,"ASdf")
 	fmt.Println(v.String())
-	v1,_ := NewValueFromJson([]byte(`["asdfadf","234",{},"ASdf"]`),false)
+	v1,_ := NewValueFromJson([]byte(`["asdfadf","234",{},"ASdf"]`),false,false)
 	fmt.Println("结果 ",v1.String())
 	v2 := v1.Clone(false)
 	fmt.Println(v2.String())
@@ -31,7 +31,7 @@ func TestDxValue_ForcePath(t *testing.T) {
 
 func TestParseJsonValue(t *testing.T) {
 	str := `{"Result":0,"Name":"不得闲","Age":36,"Weight":167.3,"arr":[ {"gg":23},23 ]}`
-	v,err := NewValueFromJson([]byte(str),true)
+	v,err := NewValueFromJson([]byte(str),true,false)
 	if err != nil{
 		fmt.Println("发生错误：",err)
 	}
@@ -85,14 +85,14 @@ func TestDxValue_SetKeyvalue(t *testing.T) {
 
 func TestNewValueFromMsgPack(t *testing.T) {
 	b,_ := ioutil.ReadFile(`DataProxy.config.msgPack`)
-	v,err := NewValueFromMsgPack(b,false)
+	v,err := NewValueFromMsgPack(b,false,false)
 	if err != nil{
 		fmt.Println(err)
 		return
 	}
 	fmt.Println(v.String())
 	b = Value2MsgPack(v,nil)
-	v1,err := NewValueFromMsgPack(b,false)
+	v1,err := NewValueFromMsgPack(b,false,false)
 	fmt.Print(v1.String())
 }
 

@@ -254,13 +254,13 @@ func NewCacheValue(tp ValueType)*DxValue  {
 	return c.getValue(tp)
 }
 
-func (v *DxValue)LoadFromMsgPack(b []byte)error  {
-	_,err := parseMsgPack2Value(b,v)
+func (v *DxValue)LoadFromMsgPack(b []byte,sharebinary bool)error  {
+	_,err := parseMsgPack2Value(b,v,sharebinary)
 	return err
 }
 
-func (v *DxValue)LoadFromJson(b []byte)error  {
-	_,err := parseJson2Value(b,v)
+func (v *DxValue)LoadFromJson(b []byte,sharebinary bool)error  {
+	_,err := parseJson2Value(b,v,sharebinary)
 	return err
 }
 
@@ -501,6 +501,31 @@ func (v *DxValue)clone(c *ValueCache)*DxValue  {
 		}
 	}
 	return rootv
+}
+
+func (v *DxValue)CopyFrom(fromv *DxValue)  {
+	v.Reset(fromv.DataType)
+	switch fromv.DataType {
+	case VT_Object:
+		c := v.ownercache
+		v.fobject.keysUnescaped = fromv.fobject.keysUnescaped
+		for i := 0; i<len(fromv.fobject.strkvs);i++{
+			rkv := fromv.fobject.getKv()
+			rkv.K = fromv.fobject.strkvs[i].K
+			rkv.V = fromv.fobject.strkvs[i].V.clone(c)
+		}
+	case VT_Array:
+		c := v.ownercache
+		for i := 0;i < len(fromv.farr);i++{
+			v.farr = append(v.farr, fromv.farr[i].clone(c))
+		}
+	case VT_String,VT_RawString:
+		v.fstrvalue = fromv.fstrvalue
+	default:
+		if v.DataType >= VT_Int && v.DataType <= VT_DateTime{
+			copy(v.simpleV[:],fromv.simpleV[:])
+		}
+	}
 }
 
 func (v *DxValue)Clone(usecache bool)*DxValue  {

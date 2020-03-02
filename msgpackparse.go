@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/suiyunonghen/DxCommonLib"
+	"io/ioutil"
 	"math"
 	"time"
 	"unsafe"
@@ -25,7 +26,7 @@ func readCode(b []byte)(MsgPackCode,[]byte,error)  {
 	return CodeUnkonw,nil,ErrUnKnownCode
 }
 
-func parseMsgPackObject2v(code MsgPackCode,b []byte,v *DxValue)(tail []byte,err error)  {
+func parseMsgPackObject2v(code MsgPackCode,b []byte,v *DxValue,sharebinary bool)(tail []byte,err error)  {
 	c := v.ownercache
 	maplen,b,err := parseMapLen(code,b)
 	if err != nil{
@@ -49,12 +50,12 @@ func parseMsgPackObject2v(code MsgPackCode,b []byte,v *DxValue)(tail []byte,err 
 		if err != nil{
 			return b,err
 		}
-		if c != nil{
-			key = string(rawbyte)
+		if sharebinary{
+			key = DxCommonLib.FastByte2String(rawbyte)
 		}else{
 			key = string(rawbyte)
 		}
-		value,b,err = parseMsgPackValue(b,c)
+		value,b,err = parseMsgPackValue(b,c,sharebinary)
 		if err != nil{
 			return b,err
 		}
@@ -64,7 +65,7 @@ func parseMsgPackObject2v(code MsgPackCode,b []byte,v *DxValue)(tail []byte,err 
 	return
 }
 
-func parseMsgPackObject(code MsgPackCode,b []byte,c *ValueCache)(result *DxValue,tail []byte,err error)  {
+func parseMsgPackObject(code MsgPackCode,b []byte,c *ValueCache,sharebinary bool)(result *DxValue,tail []byte,err error)  {
 	maplen,b,err := parseMapLen(code,b)
 	if err != nil{
 		return nil,b,err
@@ -90,12 +91,12 @@ func parseMsgPackObject(code MsgPackCode,b []byte,c *ValueCache)(result *DxValue
 			FreeValue(result)
 			return nil,b,err
 		}
-		if c != nil{
-			key = string(rawbyte)
+		if sharebinary{
+			key = DxCommonLib.FastByte2String(rawbyte)
 		}else{
 			key = string(rawbyte)
 		}
-		value,b,err = parseMsgPackValue(b,c)
+		value,b,err = parseMsgPackValue(b,c,sharebinary)
 		if err != nil{
 			FreeValue(result)
 			return nil,b,err
@@ -107,7 +108,7 @@ func parseMsgPackObject(code MsgPackCode,b []byte,c *ValueCache)(result *DxValue
 }
 
 
-func parseMsgPackArray(code MsgPackCode,b []byte,c *ValueCache)(result *DxValue,tail []byte,err error){
+func parseMsgPackArray(code MsgPackCode,b []byte,c *ValueCache,sharebinary bool)(result *DxValue,tail []byte,err error){
 	arrlen,b,err := parseArrLen(code,b)
 	if err != nil{
 		return nil,b,err
@@ -118,7 +119,7 @@ func parseMsgPackArray(code MsgPackCode,b []byte,c *ValueCache)(result *DxValue,
 	var value *DxValue
 	result = c.getValue(VT_Array)
 	for i := 0;i<arrlen;i++{
-		value,b,err = parseMsgPackValue(b,c)
+		value,b,err = parseMsgPackValue(b,c,sharebinary)
 		if err != nil{
 			FreeValue(result)
 			return nil,b,err
@@ -128,7 +129,7 @@ func parseMsgPackArray(code MsgPackCode,b []byte,c *ValueCache)(result *DxValue,
 	return result,b,err
 }
 
-func parseMsgPackArray2V(code MsgPackCode,b []byte,v *DxValue)(tail []byte,err error){
+func parseMsgPackArray2V(code MsgPackCode,b []byte,v *DxValue,sharebinary bool)(tail []byte,err error){
 	c := v.ownercache
 	arrlen,b,err := parseArrLen(code,b)
 	if err != nil{
@@ -140,7 +141,7 @@ func parseMsgPackArray2V(code MsgPackCode,b []byte,v *DxValue)(tail []byte,err e
 	var value *DxValue
 	v.Reset(VT_Array)
 	for i := 0;i<arrlen;i++{
-		value,b,err = parseMsgPackValue(b,c)
+		value,b,err = parseMsgPackValue(b,c,sharebinary)
 		if err != nil{
 			return b,err
 		}
@@ -149,7 +150,7 @@ func parseMsgPackArray2V(code MsgPackCode,b []byte,v *DxValue)(tail []byte,err e
 	return b,err
 }
 
-func parseMsgPackValue(b []byte,c *ValueCache)(result *DxValue,tail []byte,err error)  {
+func parseMsgPackValue(b []byte,c *ValueCache,sharebinary bool)(result *DxValue,tail []byte,err error)  {
 	code,b,err := readCode(b)
 	if err != nil{
 		return nil,b,err
@@ -161,12 +162,16 @@ func parseMsgPackValue(b []byte,c *ValueCache)(result *DxValue,tail []byte,err e
 			return nil,tail,err
 		}
 		result = c.getValue(VT_String)
-		result.fstrvalue = string(strbt)
+		if sharebinary{
+			result.fstrvalue = DxCommonLib.FastByte2String(strbt)
+		}else{
+			result.fstrvalue = string(strbt)
+		}
 		return result,tail,nil
 	case code.IsArray():
-		return parseMsgPackArray(code,b,c)
+		return parseMsgPackArray(code,b,c,sharebinary)
 	case code.IsMap():
-		return parseMsgPackObject(code,b,c)
+		return parseMsgPackObject(code,b,c,sharebinary)
 	case code.IsFixedNum():
 		result = c.getValue(VT_Int)
 		result.SetInt(int64(int8(code)))
@@ -265,7 +270,11 @@ func parseMsgPackValue(b []byte,c *ValueCache)(result *DxValue,tail []byte,err e
 		if blen <= haslen{
 			tail = b[blen:]
 			result = c.getValue(VT_Binary)
-			result.fbinary = append(result.fbinary[:0],b[:blen]...)
+			if sharebinary{
+				result.fbinary = b[:blen]
+			}else{
+				result.fbinary = append(result.fbinary[:0],b[:blen]...)
+			}
 			return result,tail,nil
 		}
 		return nil,b, fmt.Errorf("msgpack: binay data truncated,totalen=%d,realLen=%d",blen,haslen)
@@ -303,13 +312,17 @@ func parseMsgPackValue(b []byte,c *ValueCache)(result *DxValue,tail []byte,err e
 			}
 		}else{
 			result = c.getValue(VT_ExBinary)
-			result.fbinary = append(result.fbinary[:0],b[:exlen+1]...)
+			if sharebinary{
+				result.fbinary = b[:exlen+1]
+			}else{
+				result.fbinary = append(result.fbinary[:0],b[:exlen+1]...)
+			}
 		}
 	}
 	return
 }
 
-func parseMsgPack2Value(b []byte,v *DxValue)(tail []byte,err error)  {
+func parseMsgPack2Value(b []byte,v *DxValue,sharebinary bool)(tail []byte,err error)  {
 	code,b,err := readCode(b)
 	if err != nil{
 		return b,err
@@ -320,11 +333,15 @@ func parseMsgPack2Value(b []byte,v *DxValue)(tail []byte,err error)  {
 		if err != nil{
 			return tail,err
 		}
-		v.fstrvalue = string(strbt)
+		if sharebinary{
+			v.fstrvalue = DxCommonLib.FastByte2String(strbt)
+		}else{
+			v.fstrvalue = string(strbt)
+		}
 	case code.IsArray():
-		return parseMsgPackArray2V(code,b,v)
+		return parseMsgPackArray2V(code,b,v,sharebinary)
 	case code.IsMap():
-		return parseMsgPackObject2v(code,b,v)
+		return parseMsgPackObject2v(code,b,v,sharebinary)
 	case code.IsFixedNum():
 		v.SetInt(int64(int8(code)))
 		return b,nil
@@ -412,7 +429,11 @@ func parseMsgPack2Value(b []byte,v *DxValue)(tail []byte,err error)  {
 		haslen := len(b)
 		if blen <= haslen{
 			tail = b[blen:]
-			v.fbinary = append(v.fbinary,b[:blen]...)
+			if sharebinary{
+				v.fbinary = b[:blen]
+			}else{
+				v.fbinary = append(v.fbinary,b[:blen]...)
+			}
 			return tail,nil
 		}
 		return b, fmt.Errorf("msgpack: binay data truncated,totalen=%d,realLen=%d",blen,haslen)
@@ -448,24 +469,36 @@ func parseMsgPack2Value(b []byte,v *DxValue)(tail []byte,err error)  {
 				v.SetDouble(float64(DxCommonLib.Time2DelphiTime(&t)))
 			}
 		}else{
-			v.fbinary = append(v.fbinary,b[:exlen+1]...)
+			if sharebinary{
+				v.fbinary = b[:exlen+1]
+			}else{
+				v.fbinary = append(v.fbinary,b[:exlen+1]...)
+			}
 		}
 	}
 	return
 }
 
-func NewValueFromMsgPack(b []byte,useCache bool)(*DxValue,error)  {
+func NewValueFromMsgPack(b []byte,useCache bool,sharebinary bool)(*DxValue,error)  {
 	var c *ValueCache
 	if !useCache{
 		c = nil
 	}else{
 		c = getCache()
 	}
-	v, _, err := parseMsgPackValue(b,c)
+	v, _, err := parseMsgPackValue(b,c,sharebinary)
 	if err != nil {
 		return nil, err
 	}
 	return v,nil
+}
+
+func NewValueFromMsgPackFile(fileName string,usecache bool)(*DxValue,error)  {
+	databytes, err := ioutil.ReadFile(fileName)
+	if err != nil {
+		return nil,err
+	}
+	return NewValueFromMsgPack(databytes,usecache,false)
 }
 
 

@@ -6,6 +6,7 @@ import (
 	"testing"
 )
 
+
 func TestDxValue_ForcePath(t *testing.T) {
 	v := NewValue(VT_Object)
 	//v.SetKeyBool("a",true)
@@ -44,6 +45,9 @@ func TestParseJsonValue(t *testing.T) {
 	fmt.Println(v.StringByPath("","Childs","Name"))
 	fmt.Println(v.StringByPath("","Parent"))
 	fmt.Println(string(Value2Json(v,true,nil)))
+
+	bt := make([]byte,0,1024)
+	fmt.Println(string(formatValue(v,true,bt,0)))
 	FreeValue(v)
 
 }
@@ -91,6 +95,9 @@ func TestNewValueFromMsgPack(t *testing.T) {
 		return
 	}
 	fmt.Println(v.String())
+
+	b = formatValue(v,false,nil,0)
+	fmt.Println(string(b))
 	b = Value2MsgPack(v,nil)
 	v1,err := NewValueFromMsgPack(b,false,false)
 	fmt.Print(v1.String())
@@ -132,5 +139,27 @@ func TestDxValue_MergeWith(t *testing.T) {
 
 	varr1.MergeWith(varr2,nil)
 	fmt.Println(varr1.String())
+}
 
+func TestDxValue_LoadFromJson(t *testing.T) {
+	strBody := `
+{
+    "datasource":{
+        "type":"mysql",
+        "host":"192.168.120.71",
+        "port":3306,
+        "user":"admin",
+        "pass":"Admin@gnss12",
+        "maindb":"gnss-vrs",
+        "logdb":"gnss-vrs-logs"
+    }
+}
+`
+
+	value := NewObject(true)
+	err := value.LoadFromJson([]byte(strBody),true)
+	if err != nil{
+		fmt.Println(err)
+	}
+	fmt.Println(value.String())
 }

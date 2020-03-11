@@ -696,6 +696,94 @@ func Value2Json(v *DxValue,escapestr bool, dst []byte)[]byte  {
 	return dst
 }
 
+func Value2FormatJson(v *DxValue,escapestr bool, dst []byte)[]byte  {
+	return formatValue(v,escapestr,dst,0)
+}
+
+func formatValue(v *DxValue,escapestr bool, dst []byte,level int)[]byte  {
+	if dst == nil{
+		dst = make([]byte,0,256)
+	}
+
+	formatSpace := func(level int) {
+		for i := 0;i<level;i++{
+			dst = append(dst,' ',' ')
+		}
+	}
+	switch v.DataType {
+	case VT_Object:
+		dst = append(dst,'{','\r','\n')
+		for i := 0;i<len(v.fobject.strkvs);i++{
+			if i != 0{
+				dst = append(dst,',','\r','\n')
+			}
+			formatSpace(level+1)
+			dst = append(dst,'"')
+			if escapestr{
+				if v.fobject.keysUnescaped{
+					dst = DxCommonLib.EscapeJsonbyte(v.fobject.strkvs[i].K,dst)
+				}else{
+					dst = append(dst,v.fobject.strkvs[i].K...)
+				}
+			}else{
+				if !v.fobject.keysUnescaped{
+					v.fobject.UnEscapestrs()
+				}
+				dst = append(dst,v.fobject.strkvs[i].K...)
+			}
+			dst = append(dst,`":`...)
+			dst = formatValue(v.fobject.strkvs[i].V,escapestr,dst,level+1)
+		}
+		dst = append(dst,'\r','\n')
+		formatSpace(level)
+		dst = append(dst,'}')
+	case VT_String:
+		dst = append(dst,'"')
+		if escapestr {
+			dst = DxCommonLib.EscapeJsonbyte(v.fstrvalue,dst)
+		}else{
+			dst = append(dst,DxCommonLib.FastString2Byte(v.fstrvalue)...)
+		}
+		dst = append(dst,'"')
+	case VT_Array:
+		dst = append(dst, '[','\r','\n')
+		for i := 0;i<len(v.farr);i++{
+			if i != 0{
+				dst = append(dst, ',','\r','\n')
+			}
+			formatSpace(level+1)
+			if v.farr[i] != nil{
+				dst = formatValue(v.farr[i],escapestr,dst,level+1)
+			}else{
+				dst = append(dst,'n','u','l','l')
+			}
+		}
+		dst = append(dst,'\r','\n')
+		formatSpace(level)
+		dst = append(dst, ']')
+	case VT_Float,VT_Double:
+		dst = strconv.AppendFloat(dst,v.Double(),'f',-1,64)
+	case VT_RawString:
+		dst = append(dst,'"')
+		dst = append(dst,DxCommonLib.FastString2Byte(v.fstrvalue)...)
+		dst = append(dst,'"')
+	case VT_True:
+		dst = append(dst,"true"...)
+	case VT_False:
+		dst = append(dst,"false"...)
+	case VT_Int:
+		dst = strconv.AppendInt(dst,v.Int(),10)
+	case VT_DateTime:
+		dst = append(dst,"/Date("...)
+		unixs := int64((DxCommonLib.TDateTime)(v.Float()).ToTime().Unix()*1000)
+		dst = strconv.AppendInt(dst,unixs,10)
+		dst = append(dst,")/"...)
+	case VT_NULL:
+		dst = append(dst,'n','u','l','l')
+	}
+	return dst
+}
+
 func NewValueFromJsonFile(fileName string,usecache bool)(*DxValue,error)  {
 	databytes, err := ioutil.ReadFile(fileName)
 	if err != nil {
@@ -707,13 +795,18 @@ func NewValueFromJsonFile(fileName string,usecache bool)(*DxValue,error)  {
 	return NewValueFromJson(databytes,usecache,false)
 }
 
-func Value2File(v *DxValue, fileName string,BOMFile bool)error{
+func Value2File(v *DxValue, fileName string,BOMFile,format bool)error{
 	if file,err := os.OpenFile(fileName,os.O_CREATE | os.O_TRUNC,0644);err == nil{
 		defer file.Close()
 		if BOMFile{
 			file.Write([]byte{0xEF,0xBB,0xBF})
 		}
-		dst := Value2Json(v,false,nil)
+		var dst []byte
+		if format{
+			dst = formatValue(v,false,nil,0)
+		}else{
+			dst = Value2Json(v,false,nil)
+		}
 		_,err := file.Write(dst)
 		return err
 	}else{

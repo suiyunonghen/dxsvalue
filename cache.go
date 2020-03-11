@@ -56,6 +56,9 @@ func (c *ValueCache)Reset(toRoot bool)  {
 
 //释放Value回收ValueCache
 func FreeValue(v *DxValue)  {
+	if v == nil{
+		return
+	}
 	c := v.ownercache
 	v.ownercache = nil
 	if c!=nil{

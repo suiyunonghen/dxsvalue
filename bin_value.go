@@ -52,14 +52,25 @@ func (v *DxValue)Binary()[]byte  {
 	}
 }
 
-func (v *DxValue)SetBinary(b []byte)  {
+func (v *DxValue)SetBinary(b []byte,valueClone bool)  {
 	switch v.DataType {
 	case VT_Binary:
-		v.fbinary = b
+		if valueClone{
+			v.fbinary = append(v.fbinary[:0],b...)
+		}else{
+			v.fbinary = b
+		}
 	case VT_ExBinary:
 		if len(v.fbinary) > 0{
 			v.fbinary = append(v.fbinary[:0],v.fbinary[0])
 			v.fbinary = append(v.fbinary,b...)
+		}else{
+			v.Reset(VT_Binary)
+			if valueClone{
+				v.fbinary = append(v.fbinary[:0],b...)
+			}else{
+				v.fbinary = b
+			}
 		}
 	}
 }
@@ -89,7 +100,7 @@ func (v *DxValue)SetBinaryFromFile(fileName string)error  {
 		if err != nil{
 			return err
 		}
-		v.SetBinary(b)
+		v.SetBinary(b,false)
 	}
 	return nil
 }

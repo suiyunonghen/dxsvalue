@@ -575,8 +575,10 @@ func parseJsonNum(b []byte,c *ValueCache) (num *DxValue, tail []byte,err error) 
 	isfloat := false
 	for i := 0; i < len(b); i++ {
 		ch := b[i]
-		isfloat = ch == '.'
-		if (ch >= '0' && ch <= '9') || isfloat || ch == '-' || ch == 'e' || ch == 'E' || ch == '+' {
+		if !isfloat{
+			isfloat = ch == '.'
+		}
+		if (ch >= '0' && ch <= '9') || ch == '.' || ch == '-' || ch == 'e' || ch == 'E' || ch == '+' {
 			continue
 		}
 		if i == 0 || i == 1 && (b[0] == '-' || b[0] == '+') {

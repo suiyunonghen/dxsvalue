@@ -286,8 +286,8 @@ func (v *DxValue)Reset(dt ValueType)  {
 		v.farr = nil
 	case VT_Array:
 		v.fobject.strkvs = nil
-		if v.fobject.strkvs == nil{
-			v.fobject.strkvs = make([]strkv,0,8)
+		if v.farr == nil{
+			v.farr = make([]*DxValue,0,8)
 		}else{
 			for i := 0;i<len(v.farr);i++{
 				v.farr[i] = nil

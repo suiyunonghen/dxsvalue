@@ -798,7 +798,7 @@ func NewValueFromJsonFile(fileName string,usecache bool)(*DxValue,error)  {
 }
 
 func Value2File(v *DxValue, fileName string,BOMFile,format bool)error{
-	if file,err := os.OpenFile(fileName,os.O_CREATE | os.O_TRUNC,0644);err == nil{
+	if file,err := os.OpenFile(fileName,os.O_CREATE | os.O_TRUNC | os.O_WRONLY,0666);err == nil{
 		defer file.Close()
 		if BOMFile{
 			file.Write([]byte{0xEF,0xBB,0xBF})

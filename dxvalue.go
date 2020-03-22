@@ -693,7 +693,7 @@ func (v *DxValue)SetIndexString(idx int,value string)  {
 }
 
 func (v *DxValue)SetIndexTime(idx int,t *time.Time)  {
-	v.SetIndex(idx,VT_DateTime).SetDouble(float64(DxCommonLib.Time2DelphiTime(t)))
+	v.SetIndex(idx,VT_DateTime).SetTime(t)
 }
 
 func (v *DxValue)SetKeyInt(Name string,value int64)  {
@@ -736,8 +736,9 @@ func (v *DxValue)SetIndexBool(idx int,value bool)  {
 	}
 }
 
+
 func (v *DxValue)SetKeyTime(Name string,value time.Time)  {
-	v.SetKey(Name,VT_DateTime).SetDouble(float64(DxCommonLib.Time2DelphiTime(&value)))
+	v.SetKey(Name,VT_DateTime).SetTime(&value)
 }
 
 func (v *DxValue)Bool()bool  {
@@ -836,10 +837,24 @@ func (v *DxValue)GoTime()time.Time  {
 }
 
 func (v *DxValue)SetDouble(value float64)  {
-	if v.DataType != VT_Double{
+	if v.DataType != VT_Double && v.DataType != VT_DateTime{
 		v.Reset(VT_Double)
 	}
 	*((*float64)(unsafe.Pointer(&v.simpleV[0]))) = value
+}
+
+func (v *DxValue)SetTime(value *time.Time)  {
+	if v.DataType != VT_Double && v.DataType != VT_DateTime{
+		v.Reset(VT_DateTime)
+	}
+	*((*float64)(unsafe.Pointer(&v.simpleV[0]))) = float64(DxCommonLib.Time2DelphiTime(value))
+}
+
+func (v *DxValue)SetDelphiTime(value DxCommonLib.TDateTime)  {
+	if v.DataType != VT_Double && v.DataType != VT_DateTime{
+		v.Reset(VT_DateTime)
+	}
+	*((*float64)(unsafe.Pointer(&v.simpleV[0]))) = float64(value)
 }
 
 func (v *DxValue)SetFloat(value float32)  {

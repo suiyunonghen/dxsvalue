@@ -688,10 +688,10 @@ func Value2Json(v *DxValue,escapestr bool, dst []byte)[]byte  {
 	case VT_Int:
 		dst = strconv.AppendInt(dst,v.Int(),10)
 	case VT_DateTime:
-		dst = append(dst,"/Date("...)
+		dst = append(dst,"\"/Date("...)
 		unixs := int64((DxCommonLib.TDateTime)(v.Float()).ToTime().Unix()*1000)
 		dst = strconv.AppendInt(dst,unixs,10)
-		dst = append(dst,")/"...)
+		dst = append(dst,")/\""...)
 	case VT_NULL:
 		dst = append(dst,'n','u','l','l')
 	}

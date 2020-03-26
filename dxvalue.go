@@ -642,7 +642,7 @@ func (v *DxValue)String()string  {
 		v.fstrvalue = DxCommonLib.ParserEscapeStr(DxCommonLib.FastString2Byte(v.fstrvalue))
 		return v.fstrvalue
 	case VT_Object,VT_Array:
-		return DxCommonLib.FastByte2String(Value2FormatJson(v,false,nil))
+		return DxCommonLib.FastByte2String(Value2FormatJson(v,false,false,nil))
 	}
 	return ""
 }

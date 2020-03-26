@@ -625,7 +625,7 @@ func skipWB(b []byte) (r []byte,skiplen int) {
 }
 
 
-func Value2Json(v *DxValue,escapestr bool, dst []byte)[]byte  {
+func Value2Json(v *DxValue,escapestr,escapeDatetime bool, dst []byte)[]byte  {
 	if dst == nil{
 		dst = make([]byte,0,256)
 	}
@@ -651,7 +651,7 @@ func Value2Json(v *DxValue,escapestr bool, dst []byte)[]byte  {
 				dst = append(dst,v.fobject.strkvs[i].K...)
 			}
 			dst = append(dst,`":`...)
-			dst = Value2Json(v.fobject.strkvs[i].V,escapestr,dst)
+			dst = Value2Json(v.fobject.strkvs[i].V,escapestr,escapeDatetime,dst)
 		}
 		dst = append(dst,'}')
 	case VT_String:
@@ -669,7 +669,7 @@ func Value2Json(v *DxValue,escapestr bool, dst []byte)[]byte  {
 				dst = append(dst, ',')
 			}
 			if v.farr[i] != nil{
-				dst = Value2Json(v.farr[i],escapestr,dst)
+				dst = Value2Json(v.farr[i],escapestr,escapeDatetime,dst)
 			}else{
 				dst = append(dst,'n','u','l','l')
 			}
@@ -688,21 +688,28 @@ func Value2Json(v *DxValue,escapestr bool, dst []byte)[]byte  {
 	case VT_Int:
 		dst = strconv.AppendInt(dst,v.Int(),10)
 	case VT_DateTime:
-		dst = append(dst,"\"/Date("...)
-		unixs := int64((DxCommonLib.TDateTime)(v.Double()).ToTime().Unix()*1000)
-		dst = strconv.AppendInt(dst,unixs,10)
-		dst = append(dst,")/\""...)
+		if escapeDatetime{
+			dst = append(dst,"\"/Date("...)
+			unixs := int64(v.DateTime().ToTime().Unix()*1000)
+			dst = strconv.AppendInt(dst,unixs,10)
+			dst = append(dst,")/\""...)
+		}else{
+			dst = append(dst,'"')
+			dst = append(dst,v.DateTime().ToTime().Format("2006-01-02 15:04:05")...)
+			dst = append(dst,'"')
+		}
+
 	case VT_NULL:
 		dst = append(dst,'n','u','l','l')
 	}
 	return dst
 }
 
-func Value2FormatJson(v *DxValue,escapestr bool, dst []byte)[]byte  {
-	return formatValue(v,escapestr,dst,0)
+func Value2FormatJson(v *DxValue,escapestr,escapeDatetime bool, dst []byte)[]byte  {
+	return formatValue(v,escapestr,escapeDatetime,dst,0)
 }
 
-func formatValue(v *DxValue,escapestr bool, dst []byte,level int)[]byte  {
+func formatValue(v *DxValue,escapestr,escapeDatetime bool, dst []byte,level int)[]byte  {
 	if dst == nil{
 		dst = make([]byte,0,256)
 	}
@@ -734,7 +741,7 @@ func formatValue(v *DxValue,escapestr bool, dst []byte,level int)[]byte  {
 				dst = append(dst,v.fobject.strkvs[i].K...)
 			}
 			dst = append(dst,`":`...)
-			dst = formatValue(v.fobject.strkvs[i].V,escapestr,dst,level+1)
+			dst = formatValue(v.fobject.strkvs[i].V,escapestr,escapeDatetime,dst,level+1)
 		}
 		dst = append(dst,'\r','\n')
 		formatSpace(level)
@@ -755,7 +762,7 @@ func formatValue(v *DxValue,escapestr bool, dst []byte,level int)[]byte  {
 			}
 			formatSpace(level+1)
 			if v.farr[i] != nil{
-				dst = formatValue(v.farr[i],escapestr,dst,level+1)
+				dst = formatValue(v.farr[i],escapestr,escapeDatetime,dst,level+1)
 			}else{
 				dst = append(dst,'n','u','l','l')
 			}
@@ -776,10 +783,17 @@ func formatValue(v *DxValue,escapestr bool, dst []byte,level int)[]byte  {
 	case VT_Int:
 		dst = strconv.AppendInt(dst,v.Int(),10)
 	case VT_DateTime:
-		dst = append(dst,"/Date("...)
-		unixs := int64((DxCommonLib.TDateTime)(v.Float()).ToTime().Unix()*1000)
-		dst = strconv.AppendInt(dst,unixs,10)
-		dst = append(dst,")/"...)
+		if escapeDatetime{
+			dst = append(dst,"\"/Date("...)
+			unixs := int64(v.DateTime().ToTime().Unix()*1000)
+			dst = strconv.AppendInt(dst,unixs,10)
+			dst = append(dst,")/\""...)
+		}else{
+			dst = append(dst,'"')
+			dst = append(dst,v.DateTime().ToTime().Format("2006-01-02 15:04:05")...)
+			dst = append(dst,'"')
+		}
+
 	case VT_NULL:
 		dst = append(dst,'n','u','l','l')
 	}
@@ -805,9 +819,9 @@ func Value2File(v *DxValue, fileName string,BOMFile,format bool)error{
 		}
 		var dst []byte
 		if format{
-			dst = formatValue(v,false,nil,0)
+			dst = formatValue(v,false,false,nil,0)
 		}else{
-			dst = Value2Json(v,false,nil)
+			dst = Value2Json(v,false,false,nil)
 		}
 		_,err := file.Write(dst)
 		return err

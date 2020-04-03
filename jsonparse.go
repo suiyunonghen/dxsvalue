@@ -53,7 +53,13 @@ type ErrorParseJson struct {
 }
 
 func (err *ErrorParseJson)Error()string  {
-	return fmt.Sprintf("解析在数据%s在位置%d处发生错误：%s",DxCommonLib.FastByte2String(err.parseB),err.InvalidIndex,err.Type.String())
+	b := err.parseB
+	l := len(b)
+	if l > err.InvalidIndex + 32{
+		l = err.InvalidIndex + 32
+	}
+	b = b[err.InvalidIndex:l]
+	return fmt.Sprintf("解析在数据%s处发生错误：%s",string(b),err.Type.String())
 }
 
 //解析从fastjson中的代码修改

@@ -85,7 +85,7 @@ const(
 )
 
 func (code MsgPackCode)IsExt() bool {
-	return (code >= CodeFixExt1 && code <= CodeFixExt16 && code != CodeFixExt8) || (code >= CodeExt8 && code <= CodeExt32)
+	return (code >= CodeFixExt1 && code <= CodeFixExt16) || (code >= CodeExt8 && code <= CodeExt32)
 }
 
 func (code MsgPackCode)IsTime(extType byte)bool  {

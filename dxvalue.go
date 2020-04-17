@@ -140,8 +140,8 @@ func (obj *VObject)UnEscapestrs()  {
 }
 
 type	DxValue struct {
-	DataType	ValueType
 	fobject		VObject
+	DataType	ValueType
 	ownercache	*ValueCache
 	simpleV		[8]byte
 	fstrvalue	string
@@ -457,7 +457,7 @@ func (v *DxValue)Equal(value *DxValue)bool  {
 }
 
 func (v *DxValue)TimeByName(Key string,defv time.Time)time.Time  {
-	return v.AsDateTime(Key,DxCommonLib.Time2DelphiTime(&defv)).ToTime()
+	return v.AsDateTime(Key,DxCommonLib.Time2DelphiTime(defv)).ToTime()
 }
 
 func (v *DxValue)Int()int64  {
@@ -692,7 +692,7 @@ func (v *DxValue)SetIndexString(idx int,value string)  {
 	v.SetIndex(idx,VT_String).fstrvalue = value
 }
 
-func (v *DxValue)SetIndexTime(idx int,t *time.Time)  {
+func (v *DxValue)SetIndexTime(idx int,t time.Time)  {
 	v.SetIndex(idx,VT_DateTime).SetTime(t)
 }
 
@@ -738,7 +738,7 @@ func (v *DxValue)SetIndexBool(idx int,value bool)  {
 
 
 func (v *DxValue)SetKeyTime(Name string,value time.Time)  {
-	v.SetKey(Name,VT_DateTime).SetTime(&value)
+	v.SetKey(Name,VT_DateTime).SetTime(value)
 }
 
 func (v *DxValue)Bool()bool  {
@@ -810,11 +810,11 @@ func (v *DxValue)DateTime()DxCommonLib.TDateTime  {
 		return (DxCommonLib.TDateTime)(v.Double())
 	case VT_String,VT_RawString:
 		if t,err := time.Parse("2006-01-02T15:04:05Z",v.fstrvalue);err == nil{
-			return DxCommonLib.Time2DelphiTime(&t)
+			return DxCommonLib.Time2DelphiTime(t)
 		}else if t,err = time.Parse("2006-01-02 15:04:05",v.fstrvalue);err == nil{
-			return DxCommonLib.Time2DelphiTime(&t)
+			return DxCommonLib.Time2DelphiTime(t)
 		}else if t,err = time.Parse("2006/01/02 15:04:05",v.fstrvalue);err == nil{
-			return DxCommonLib.Time2DelphiTime(&t)
+			return DxCommonLib.Time2DelphiTime(t)
 		}
 	}
 	return -1
@@ -843,7 +843,7 @@ func (v *DxValue)SetDouble(value float64)  {
 	*((*float64)(unsafe.Pointer(&v.simpleV[0]))) = value
 }
 
-func (v *DxValue)SetTime(value *time.Time)  {
+func (v *DxValue)SetTime(value time.Time)  {
 	if v.DataType != VT_Double && v.DataType != VT_DateTime{
 		v.Reset(VT_DateTime)
 	}
@@ -1044,9 +1044,9 @@ func (v *DxValue)SetKeyvalue(Name string,value interface{},cache *ValueCache)  {
 			v.SetKeyValue(Name,valueFalse)
 		}
 	case time.Time:
-		v.SetKeyCached(Name,VT_DateTime,cache).SetDouble(float64(DxCommonLib.Time2DelphiTime(&realv)))
-	case *time.Time:
 		v.SetKeyCached(Name,VT_DateTime,cache).SetDouble(float64(DxCommonLib.Time2DelphiTime(realv)))
+	case *time.Time:
+		v.SetKeyCached(Name,VT_DateTime,cache).SetDouble(float64(DxCommonLib.Time2DelphiTime(*realv)))
 	case float32:
 		v.SetKeyCached(Name,VT_Float,cache).SetFloat(realv)
 	case *float32:
@@ -1270,9 +1270,9 @@ func (v *DxValue)SetIndexvalue(idx int,value interface{},cache *ValueCache)  {
 			v.SetIndexValue(idx,valueFalse)
 		}
 	case time.Time:
-		v.SetIndexCached(idx,VT_DateTime,cache).SetDouble(float64(DxCommonLib.Time2DelphiTime(&realv)))
-	case *time.Time:
 		v.SetIndexCached(idx,VT_DateTime,cache).SetDouble(float64(DxCommonLib.Time2DelphiTime(realv)))
+	case *time.Time:
+		v.SetIndexCached(idx,VT_DateTime,cache).SetDouble(float64(DxCommonLib.Time2DelphiTime(*realv)))
 	case float32:
 		v.SetIndexCached(idx,VT_Float,cache).SetFloat(realv)
 	case *float32:

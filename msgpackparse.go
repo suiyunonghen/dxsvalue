@@ -296,19 +296,19 @@ func parseMsgPackValue(b []byte,c *ValueCache,sharebinary bool)(result *DxValue,
 			case CodeFixExt4:
 				sec := binary.BigEndian.Uint32(b[1:])
 				t := time.Unix(int64(sec), 0)
-				result.SetDouble(float64(DxCommonLib.Time2DelphiTime(&t)))
+				result.SetDouble(float64(DxCommonLib.Time2DelphiTime(t)))
 			case CodeFixExt8:
 				//64位时间格式
 				sec := binary.BigEndian.Uint64(b[1:])
 				nsec := int64(sec >> 34)
 				sec &= 0x00000003ffffffff
 				t := time.Unix(int64(sec), nsec)
-				result.SetDouble(float64(DxCommonLib.Time2DelphiTime(&t)))
+				result.SetDouble(float64(DxCommonLib.Time2DelphiTime(t)))
 			default:
 				nsec := binary.BigEndian.Uint32(b[1:])
 				sec := binary.BigEndian.Uint64(b[5:])
 				t := time.Unix(int64(sec), int64(nsec))
-				result.SetDouble(float64(DxCommonLib.Time2DelphiTime(&t)))
+				result.SetDouble(float64(DxCommonLib.Time2DelphiTime(t)))
 			}
 		}else{
 			result = c.getValue(VT_ExBinary)
@@ -454,19 +454,19 @@ func parseMsgPack2Value(b []byte,v *DxValue,sharebinary bool)(tail []byte,err er
 			case CodeFixExt4:
 				sec := binary.BigEndian.Uint32(b[1:])
 				t := time.Unix(int64(sec), 0)
-				v.SetDouble(float64(DxCommonLib.Time2DelphiTime(&t)))
+				v.SetDouble(float64(DxCommonLib.Time2DelphiTime(t)))
 			case CodeFixExt8:
 				//64位时间格式
 				sec := binary.BigEndian.Uint64(b[1:])
 				nsec := int64(sec >> 34)
 				sec &= 0x00000003ffffffff
 				t := time.Unix(int64(sec), nsec)
-				v.SetDouble(float64(DxCommonLib.Time2DelphiTime(&t)))
+				v.SetDouble(float64(DxCommonLib.Time2DelphiTime(t)))
 			default:
 				nsec := binary.BigEndian.Uint32(b[1:])
 				sec := binary.BigEndian.Uint64(b[5:])
 				t := time.Unix(int64(sec), int64(nsec))
-				v.SetDouble(float64(DxCommonLib.Time2DelphiTime(&t)))
+				v.SetDouble(float64(DxCommonLib.Time2DelphiTime(t)))
 			}
 		}else{
 			if sharebinary{

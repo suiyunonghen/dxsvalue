@@ -42,7 +42,7 @@ func BenchmarkJsonParse(b *testing.B) {
 		b.RunParallel(func(pb *testing.PB) {
 			for pb.Next() {
 				v,_ := NewValueFromJson(buf,false,false)
-				Value2Json(v,false,nil)
+				Value2Json(v,false,false,nil)
 			}
 		})
 	})

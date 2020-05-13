@@ -1443,9 +1443,10 @@ func (v *DxValue)InsertValue(idx int,tp ValueType)*DxValue  {
 	result := NewValue(tp)
 	l := len(v.farr)
 	if idx < 0{
-		v.farr = append(v.farr[:0],result)
-	}else if idx < l{
-		rarr := v.farr[idx:]
+		idx = 0
+	}
+	if idx < l{
+		rarr := append([]*DxValue{},v.farr[idx:]...)
 		v.farr = append(v.farr[:idx],result)
 		v.farr = append(v.farr,rarr...)
 	}else{

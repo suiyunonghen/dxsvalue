@@ -256,11 +256,13 @@ func NewCacheValue(tp ValueType)*DxValue  {
 }
 
 func (v *DxValue)LoadFromMsgPack(b []byte,sharebinary bool)error  {
+	v.Clear()
 	_,err := parseMsgPack2Value(b,v,sharebinary)
 	return err
 }
 
 func (v *DxValue)LoadFromJson(b []byte,sharebinary bool)error  {
+	v.Clear()
 	b,_ = skipWB(b)
 	_,err := parseJson2Value(b,v,sharebinary)
 	return err

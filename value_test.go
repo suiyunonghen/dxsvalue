@@ -151,7 +151,8 @@ func TestDxValue_LoadFromJson(t *testing.T) {
         "user":"admin",
         "pass":"Admin@gnss12",
         "maindb":"gnss-vrs",
-        "logdb":"gnss-vrs-logs"
+        "logdb":"gnss-vrs-logs",
+		"float":32.342
     }
 }
 `

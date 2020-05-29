@@ -551,7 +551,7 @@ func Value2MsgPack(v *DxValue,dst []byte)[]byte  {
 			return dst
 		}
 		//96
-		dst = append(dst, byte(CodeExt8),0xff)
+		dst = append(dst, byte(CodeExt8),12,0xff)
 		l := len(dst)
 		dst = append(dst,0,0,0,0,0,0,0,0,0,0,0,0)
 		b := dst[l:l+12]

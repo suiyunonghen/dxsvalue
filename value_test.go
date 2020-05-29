@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"testing"
+	"time"
 )
 
 
@@ -144,16 +145,7 @@ func TestDxValue_MergeWith(t *testing.T) {
 func TestDxValue_LoadFromJson(t *testing.T) {
 	strBody := `
 {
-    "datasource":{
-        "type":"mysql",
-        "host":"192.168.120.71",
-        "port":3306,
-        "user":"admin",
-        "pass":"Admin@gnss12",
-        "maindb":"gnss-vrs",
-        "logdb":"gnss-vrs-logs",
-		"float":32.342
-    }
+"LastUpdate":"1899-12-30 00:00:00"
 }
 `
 
@@ -162,5 +154,39 @@ func TestDxValue_LoadFromJson(t *testing.T) {
 	if err != nil{
 		fmt.Println(err)
 	}
-	fmt.Println(value.String())
+	value.SetKeyTime("LastUpdate",time.Time{})
+	dst := Value2MsgPack(value,nil)
+	value.Clear()
+	if value.LoadFromMsgPack(dst,false)!=nil{
+		fmt.Println("sadfa")
+	}else{
+		fmt.Println(value.String())
+	}
+
+}
+
+func TestDxValue_AsDateTime(t *testing.T) {
+	rec := NewValue(VT_Object)
+	rec.SetKeyString("url","www.baidu.com")
+	rec.SetKeyString("Host","234")
+	rec.SetKeyInt("state",4)
+	rec.SetKeyInt("FileSize",20)
+	rec.SetKeyTime("LastUpdate",time.Now())
+	rec.SetKeyString("Content-Type","zip")
+	rec.SetKeyString("ContentEncoding","br")
+
+	pkg := NewValue(VT_Object)
+	pkg.SetKeyString("Name", "Method")
+	pkg.SetKeyInt("Type", 1) //1是方法
+	pkg.SetKeyValue("Params", rec)
+
+	bt := Value2MsgPack(pkg,nil)
+	recv := NewValue(VT_Object)
+	err := recv.LoadFromMsgPack(bt,false)
+	if err != nil{
+		fmt.Println(err)
+	}else{
+		fmt.Println(recv.String())
+	}
+
 }

@@ -514,7 +514,7 @@ func (v *DxValue)CopyFrom(fromv *DxValue)  {
 		c := v.ownercache
 		v.fobject.keysUnescaped = fromv.fobject.keysUnescaped
 		for i := 0; i<len(fromv.fobject.strkvs);i++{
-			rkv := fromv.fobject.getKv()
+			rkv := v.fobject.getKv()
 			rkv.K = fromv.fobject.strkvs[i].K
 			rkv.V = fromv.fobject.strkvs[i].V.clone(c)
 		}
@@ -677,7 +677,31 @@ func (v *DxValue)AsDateTime(Name string,def DxCommonLib.TDateTime)DxCommonLib.TD
 	return v.DateTimeByPath(def,Name)
 }
 
+func (v *DxValue)Count()int  {
+	switch v.DataType {
+	case VT_Array:
+		return len(v.farr)
+	case VT_Object:
+		return len(v.fobject.strkvs)
+	default:
+		return 0
+	}
+}
 
+func (v *DxValue)Items(idx int)(string,*DxValue)  {
+	switch v.DataType {
+	case VT_Array:
+		if idx >= 0 && idx < len(v.farr){
+			return "",v.farr[idx]
+		}
+	case VT_Object:
+		if idx >= 0 && idx < len(v.fobject.strkvs){
+			v.fobject.UnEscapestrs()
+			return v.fobject.strkvs[idx].K,v.fobject.strkvs[idx].V
+		}
+	}
+	return "",nil
+}
 
 func (v *DxValue)SetString(value string)  {
 	if v.DataType != VT_String{
@@ -1457,15 +1481,6 @@ func (v *DxValue)InsertValue(idx int,tp ValueType)*DxValue  {
 	return result
 }
 
-func (v *DxValue)Count()int  {
-	switch v.DataType {
-	case VT_Object:
-		return len(v.fobject.strkvs)
-	case VT_Array:
-		return len(v.farr)
-	}
-	return 0
-}
 
 func (v *DxValue)IntByIndex(idx int,def int)int  {
 	value := v.ValueByIndex(idx)

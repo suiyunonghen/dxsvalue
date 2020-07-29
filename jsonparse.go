@@ -825,9 +825,9 @@ func Value2File(v *DxValue, fileName string,BOMFile,format bool)error{
 		}
 		var dst []byte
 		if format{
-			dst = formatValue(v,false,false,nil,0)
+			dst = formatValue(v,true,false,nil,0)
 		}else{
-			dst = Value2Json(v,false,false,nil)
+			dst = Value2Json(v,true,false,nil)
 		}
 		_,err := file.Write(dst)
 		return err

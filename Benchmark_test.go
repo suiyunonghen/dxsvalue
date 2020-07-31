@@ -1,10 +1,8 @@
 package dxsvalue
 
 import (
-	"bytes"
 	"encoding/json"
 	jsoniter "github.com/json-iterator/go"
-	dvalue "github.com/suiyunonghen/DxValue"
 	"io/ioutil"
 	"testing"
 )
@@ -25,7 +23,7 @@ func BenchmarkJsonParse(b *testing.B) {
 			}
 		})
 	})
-	b.Run("DxRecord", func(b *testing.B) {
+	/*b.Run("DxRecord", func(b *testing.B) {
 		b.ReportAllocs()
 		b.SetBytes(int64(len(buf)))
 		b.RunParallel(func(pb *testing.PB) {
@@ -35,14 +33,14 @@ func BenchmarkJsonParse(b *testing.B) {
 				rc.Bytes(false)
 			}
 		})
-	})
+	})*/
 	b.Run("DxValue", func(b *testing.B) {
 		b.ReportAllocs()
 		b.SetBytes(int64(len(buf)))
 		b.RunParallel(func(pb *testing.PB) {
 			for pb.Next() {
 				v,_ := NewValueFromJson(buf,false,false)
-				Value2Json(v,false,false,nil)
+				Value2Json(v,JSE_OnlyAnsiChar,false,nil)
 			}
 		})
 	})
@@ -64,7 +62,7 @@ func BenchmarkMsgPackParse(b *testing.B) {
 	if err != nil {
 		return
 	}
-	b.Run("DxRecord", func(b *testing.B) {
+	/*b.Run("DxRecord", func(b *testing.B) {
 		b.ReportAllocs()
 		b.SetBytes(int64(len(buf)))
 		b.RunParallel(func(pb *testing.PB) {
@@ -78,7 +76,7 @@ func BenchmarkMsgPackParse(b *testing.B) {
 				dvalue.NewEncoder(w).EncodeRecord(rc)
 			}
 		})
-	})
+	})*/
 	b.Run("DxValue", func(b *testing.B) {
 		b.ReportAllocs()
 		b.SetBytes(int64(len(buf)))

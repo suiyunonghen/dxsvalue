@@ -630,8 +630,15 @@ func skipWB(b []byte) (r []byte,skiplen int) {
 	return nil,0
 }
 
+type JsonEscapeStyle	uint8
+const(
+	JSE_NoEscape JsonEscapeStyle = iota
+	JSE_AllEscape
+	JSE_OnlyAnsiChar
+)
 
-func Value2Json(v *DxValue,escapestr,escapeDatetime bool, dst []byte)[]byte  {
+
+func Value2Json(v *DxValue,escapeStyle JsonEscapeStyle,escapeDatetime bool, dst []byte)[]byte  {
 	if dst == nil{
 		dst = make([]byte,0,256)
 	}
@@ -644,29 +651,34 @@ func Value2Json(v *DxValue,escapestr,escapeDatetime bool, dst []byte)[]byte  {
 			}else{
 				dst = append(dst,'"')
 			}
-			if escapestr{
-				if v.fobject.keysUnescaped{
-					dst = DxCommonLib.EscapeJsonbyte(v.fobject.strkvs[i].K,dst)
-				}else{
-					dst = append(dst,v.fobject.strkvs[i].K...)
-				}
-			}else{
+
+			switch escapeStyle {
+			case JSE_NoEscape:
 				if !v.fobject.keysUnescaped{
 					v.fobject.UnEscapestrs()
 				}
 				dst = append(dst,v.fobject.strkvs[i].K...)
+			default:
+				if escapeStyle != JSE_NoEscape &&  v.fobject.keysUnescaped{
+					dst = DxCommonLib.EscapeJsonbyte(v.fobject.strkvs[i].K,escapeStyle==JSE_AllEscape,dst)
+				}else{
+					dst = append(dst,v.fobject.strkvs[i].K...)
+				}
 			}
+
 			dst = append(dst,`":`...)
-			dst = Value2Json(v.fobject.strkvs[i].V,escapestr,escapeDatetime,dst)
+			dst = Value2Json(v.fobject.strkvs[i].V,escapeStyle,escapeDatetime,dst)
 		}
 		dst = append(dst,'}')
 	case VT_String:
 		dst = append(dst,'"')
-		if escapestr {
-			dst = DxCommonLib.EscapeJsonbyte(v.fstrvalue,dst)
-		}else{
+
+		if escapeStyle == JSE_NoEscape {
 			dst = append(dst,DxCommonLib.FastString2Byte(v.fstrvalue)...)
+		}else{
+			dst = DxCommonLib.EscapeJsonbyte(v.fstrvalue,escapeStyle==JSE_AllEscape,dst)
 		}
+
 		dst = append(dst,'"')
 	case VT_Array:
 		dst = append(dst, '[')
@@ -675,7 +687,7 @@ func Value2Json(v *DxValue,escapestr,escapeDatetime bool, dst []byte)[]byte  {
 				dst = append(dst, ',')
 			}
 			if v.farr[i] != nil{
-				dst = Value2Json(v.farr[i],escapestr,escapeDatetime,dst)
+				dst = Value2Json(v.farr[i],escapeStyle,escapeDatetime,dst)
 			}else{
 				dst = append(dst,'n','u','l','l')
 			}
@@ -711,11 +723,11 @@ func Value2Json(v *DxValue,escapestr,escapeDatetime bool, dst []byte)[]byte  {
 	return dst
 }
 
-func Value2FormatJson(v *DxValue,escapestr,escapeDatetime bool, dst []byte)[]byte  {
-	return formatValue(v,escapestr,escapeDatetime,dst,0)
+func Value2FormatJson(v *DxValue,escapeStyle JsonEscapeStyle,escapeDatetime bool, dst []byte)[]byte  {
+	return formatValue(v,escapeStyle,escapeDatetime,dst,0)
 }
 
-func formatValue(v *DxValue,escapestr,escapeDatetime bool, dst []byte,level int)[]byte  {
+func formatValue(v *DxValue,escapeStyle JsonEscapeStyle,escapeDatetime bool, dst []byte,level int)[]byte  {
 	if dst == nil{
 		dst = make([]byte,0,256)
 	}
@@ -734,9 +746,9 @@ func formatValue(v *DxValue,escapestr,escapeDatetime bool, dst []byte,level int)
 			}
 			formatSpace(level+1)
 			dst = append(dst,'"')
-			if escapestr{
+			if escapeStyle != JSE_NoEscape{
 				if v.fobject.keysUnescaped{
-					dst = DxCommonLib.EscapeJsonbyte(v.fobject.strkvs[i].K,dst)
+					dst = DxCommonLib.EscapeJsonbyte(v.fobject.strkvs[i].K,escapeStyle == JSE_AllEscape,dst)
 				}else{
 					dst = append(dst,v.fobject.strkvs[i].K...)
 				}
@@ -747,17 +759,17 @@ func formatValue(v *DxValue,escapestr,escapeDatetime bool, dst []byte,level int)
 				dst = append(dst,v.fobject.strkvs[i].K...)
 			}
 			dst = append(dst,`":`...)
-			dst = formatValue(v.fobject.strkvs[i].V,escapestr,escapeDatetime,dst,level+1)
+			dst = formatValue(v.fobject.strkvs[i].V,escapeStyle,escapeDatetime,dst,level+1)
 		}
 		dst = append(dst,'\r','\n')
 		formatSpace(level)
 		dst = append(dst,'}')
 	case VT_String:
 		dst = append(dst,'"')
-		if escapestr {
-			dst = DxCommonLib.EscapeJsonbyte(v.fstrvalue,dst)
-		}else{
+		if escapeStyle == JSE_NoEscape {
 			dst = append(dst,DxCommonLib.FastString2Byte(v.fstrvalue)...)
+		}else{
+			dst = DxCommonLib.EscapeJsonbyte(v.fstrvalue,escapeStyle == JSE_AllEscape,dst)
 		}
 		dst = append(dst,'"')
 	case VT_Array:
@@ -768,7 +780,7 @@ func formatValue(v *DxValue,escapestr,escapeDatetime bool, dst []byte,level int)
 			}
 			formatSpace(level+1)
 			if v.farr[i] != nil{
-				dst = formatValue(v.farr[i],escapestr,escapeDatetime,dst,level+1)
+				dst = formatValue(v.farr[i],escapeStyle,escapeDatetime,dst,level+1)
 			}else{
 				dst = append(dst,'n','u','l','l')
 			}
@@ -825,9 +837,9 @@ func Value2File(v *DxValue, fileName string,BOMFile,format bool)error{
 		}
 		var dst []byte
 		if format{
-			dst = formatValue(v,true,false,nil,0)
+			dst = formatValue(v,JSE_OnlyAnsiChar,false,nil,0)
 		}else{
-			dst = Value2Json(v,true,false,nil)
+			dst = Value2Json(v,JSE_OnlyAnsiChar,false,nil)
 		}
 		_,err := file.Write(dst)
 		return err

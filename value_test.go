@@ -45,10 +45,10 @@ func TestParseJsonValue(t *testing.T) {
 	chld.SetKeyInt("Age",3)
 	fmt.Println(v.StringByPath("","Childs","Name"))
 	fmt.Println(v.StringByPath("","Parent"))
-	fmt.Println(string(Value2Json(v,true,false,nil)))
+	fmt.Println(string(Value2Json(v,JSE_OnlyAnsiChar,false,nil)))
 
 	bt := make([]byte,0,1024)
-	fmt.Println(string(formatValue(v,true,false,bt,0)))
+	fmt.Println(string(formatValue(v,JSE_OnlyAnsiChar,false,bt,0)))
 	FreeValue(v)
 
 }
@@ -65,10 +65,12 @@ func TestNewValue(t *testing.T) {
 	child.SetKeyInt("Age",3)
 
 	child = arrv.SetIndex(1,VT_Object)
-	child.SetKeyString("Name","Child2")
+	child.SetKeyString("Name","Chil\"d2\"")
 	child.SetKeyString("Sex","girl")
 	child.SetKeyInt("Age",3)
-	fmt.Println(string(Value2Json(v,true,false,nil)))
+	fmt.Println(string(Value2Json(v,JSE_OnlyAnsiChar,false,nil)))
+	fmt.Println(string(Value2Json(v,JSE_AllEscape,false,nil)))
+	fmt.Println(string(Value2Json(v,JSE_NoEscape,false,nil)))
 }
 
 type People struct {
@@ -83,7 +85,7 @@ func TestDxValue_SetKeyvalue(t *testing.T) {
 	p := People{Name:`{"DxSoft":"gg"}`,Age:20,Weight:23.24,IsMen:true}
 	value.SetKeyvalue("one",p,value.ValueCache())
 	value.SetKeyvalue("two",&p,value.ValueCache())
-	fmt.Println(string(Value2Json(value,true,false,nil)))
+	fmt.Println(string(Value2Json(value,JSE_OnlyAnsiChar,false,nil)))
 	value.Clear()
 	value.SetKeyString("Name","DxSoft")
 }
@@ -97,7 +99,7 @@ func TestNewValueFromMsgPack(t *testing.T) {
 	}
 	fmt.Println(v.String())
 
-	b = formatValue(v,false,false,nil,0)
+	b = formatValue(v,JSE_OnlyAnsiChar,false,nil,0)
 	fmt.Println(string(b))
 	b = Value2MsgPack(v,nil)
 	v1,err := NewValueFromMsgPack(b,false,false)

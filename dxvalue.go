@@ -224,12 +224,12 @@ func NewArray(cached bool)*DxValue  {
 			fisroot:	false,
 			Value:    make([]DxValue,0,8),
 		}
-		c.Value = append(c.Value, DxValue{DataType:   VT_Object,
+		c.Value = append(c.Value, DxValue{DataType:   VT_Array,
 			ownercache: c,})
 		result = &c.Value[len(c.Value)-1]
 	}else{
 		result = &DxValue{
-			DataType:   VT_Object,
+			DataType:   VT_Array,
 			ownercache: nil,
 		}
 	}

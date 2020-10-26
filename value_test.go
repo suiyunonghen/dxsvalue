@@ -9,7 +9,13 @@ import (
 
 
 func TestDxValue_ForcePath(t *testing.T) {
-	v := NewValue(VT_Object)
+	v := NewValueFrom(map[string]interface{}{
+		"Name":"不得闲",
+		"Age":33,
+		"Weight":102.34,
+	},true)
+	fmt.Println(v.String())
+	//v := NewValue(VT_Object)
 	//v.SetKeyBool("a",true)
 	v.ForcePath(VT_False,"a","b")
 	v.ForcePath(VT_String,"a","b","c").SetString("Asdfaf")

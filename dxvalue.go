@@ -37,8 +37,8 @@ type  strkv struct {
 
 
 type VObject struct {
-	strkvs			[]strkv
 	keysUnescaped	bool
+	strkvs			[]strkv
 }
 
 func (obj *VObject)getKv()*strkv  {
@@ -140,8 +140,8 @@ func (obj *VObject)UnEscapestrs()  {
 }
 
 type	DxValue struct {
-	fobject		VObject
 	DataType	ValueType
+	fobject		VObject
 	ownercache	*ValueCache
 	simpleV		[8]byte
 	fstrvalue	string
@@ -164,6 +164,25 @@ func NewValue(tp ValueType)*DxValue  {
 	}
 	result := &DxValue{}
 	result.Reset(tp)
+	return result
+}
+
+func NewValueFrom(value interface{},cached bool)*DxValue  {
+	var result *DxValue
+	if cached{
+		c := &ValueCache{
+			fisroot:	false,
+			Value:    make([]DxValue,0,8),
+		}
+		c.Value = append(c.Value, DxValue{
+			ownercache: c,})
+		result = &c.Value[len(c.Value)-1]
+	}else{
+		result = &DxValue{
+			ownercache: nil,
+		}
+	}
+	result.SetValue(value)
 	return result
 }
 

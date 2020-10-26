@@ -1009,6 +1009,227 @@ func (v *DxValue)SetKey(Name string,tp ValueType)*DxValue  {
 	return v.SetKeyCached(Name,tp,v.ownercache)
 }
 
+func (v *DxValue)SetDxValue(value *DxValue)  {
+
+}
+
+func (v *DxValue)SetValue(value interface{})  {
+	if v == valueNAN || v == valueINF || v == valueTrue || v == valueFalse || v == valueNull{
+		return
+	}
+	switch realv := value.(type) {
+	case int:
+		v.SetInt(int64(realv))
+	case *int:
+		v.SetInt(int64(*realv))
+	case uint:
+		v.SetInt(int64(realv))
+	case *uint:
+		v.SetInt(int64(*realv))
+	case int32:
+		v.SetInt(int64(realv))
+	case *int32:
+		v.SetInt(int64(*realv))
+	case uint32:
+		v.SetInt(int64(realv))
+	case *uint32:
+		v.SetInt(int64(*realv))
+	case int16:
+		v.SetInt(int64(realv))
+	case *int16:
+		v.SetInt(int64(*realv))
+	case uint16:
+		v.SetInt(int64(realv))
+	case *uint16:
+		v.SetInt(int64(*realv))
+	case int8:
+		v.SetInt(int64(realv))
+	case *int8:
+		v.SetInt(int64(*realv))
+	case uint8:
+		v.SetInt(int64(realv))
+	case *uint8:
+		v.SetInt(int64(*realv))
+	case int64:
+		v.SetInt(realv)
+	case *int64:
+		v.SetInt(*realv)
+	case uint64:
+		v.SetInt(int64(realv))
+	case *uint64:
+		v.SetInt(int64(*realv))
+	case string:
+		v.SetString(realv)
+	case *DxValue:
+		v.SetDxValue(realv)
+	case DxValue:
+		v.SetDxValue(&realv)
+	case bool:
+		v.SetBool(realv)
+	case *bool:
+		v.SetBool(*realv)
+	case time.Time:
+		v.SetDouble(float64(DxCommonLib.Time2DelphiTime(realv)))
+	case *time.Time:
+		v.SetDouble(float64(DxCommonLib.Time2DelphiTime(*realv)))
+	case float32:
+		v.SetFloat(realv)
+	case *float32:
+		v.SetFloat(*realv)
+	case float64:
+		v.SetDouble(realv)
+	case *float64:
+		v.SetDouble(*realv)
+	case []byte:
+		v.SetBinary(realv,true)
+	case *[]byte:
+		v.SetBinary(*realv,true)
+	case map[string]interface{}:
+		v.Reset(VT_Object)
+		cache := v.ValueCache()
+		for key,objv := range realv{
+			v.SetKeyvalue(key,objv,cache)
+		}
+	case *map[string]interface{}:
+		v.Reset(VT_Object)
+		cache := v.ValueCache()
+		for key,objv := range *realv{
+			v.SetKeyvalue(key,objv,cache)
+		}
+	case map[string]string:
+		v.Reset(VT_Object)
+		cache := v.ValueCache()
+		for key,objv := range realv{
+			v.SetKeyCached(key,VT_String,cache).SetString(objv)
+		}
+	case *map[string]string:
+		v.Reset(VT_Object)
+		cache := v.ValueCache()
+		for key,objv := range *realv{
+			v.SetKeyCached(key,VT_String,cache).SetString(objv)
+		}
+	case map[string]int:
+		v.Reset(VT_Object)
+		cache := v.ValueCache()
+		for key,objv := range realv{
+			v.SetKeyCached(key,VT_Int,cache).SetInt(int64(objv))
+		}
+	case *map[string]int:
+		v.Reset(VT_Object)
+		cache := v.ValueCache()
+		for key,objv := range *realv{
+			v.SetKeyCached(key,VT_Int,cache).SetInt(int64(objv))
+		}
+	default:
+		//判断一下是否是结构体
+		reflectv := reflect.ValueOf(value)
+		if !reflectv.IsValid(){
+			return
+		}
+		if reflectv.Kind() == reflect.Ptr{
+			reflectv = reflectv.Elem()
+		}
+		switch reflectv.Kind(){
+		case reflect.Struct:
+			tp := reflectv.Type()
+			if tp == TimeType{
+				vi := reflectv.Interface()
+				v.SetTime(vi.(time.Time))
+				return
+			}else if tp == TimePtrType{
+				vi := reflectv.Interface()
+				v.SetTime(*(vi.(*time.Time)))
+				return
+			}
+			v.Reset(VT_Object)
+			cache := v.ValueCache()
+			rtype := reflectv.Type()
+			for i := 0;i < rtype.NumField();i++{
+				sfield := rtype.Field(i)
+				fv := reflectv.Field(i)
+				if fv.Kind() == reflect.Ptr{
+					fv = fv.Elem()
+				}
+				switch fv.Kind() {
+				case reflect.Int,reflect.Int8,reflect.Int16,reflect.Int32,reflect.Int64,
+					reflect.Uint,reflect.Uint8,reflect.Uint16,reflect.Uint32,reflect.Uint64:
+					v.SetKeyCached(sfield.Name,VT_Int,cache).SetInt(fv.Int())
+				case reflect.Bool:
+					if fv.Bool(){
+						v.SetKeyValue(sfield.Name,valueTrue)
+					}else{
+						v.SetKeyValue(sfield.Name,valueFalse)
+					}
+				case reflect.Float32:
+					v.SetKeyCached(sfield.Name,VT_Double,cache).SetFloat(float32(fv.Float()))
+				case reflect.Float64:
+					v.SetKeyCached(sfield.Name,VT_Double,cache).SetDouble(fv.Float())
+				case reflect.String:
+					v.SetKeyCached(sfield.Name,VT_String,cache).SetString(fv.String())
+				default:
+					if fv.CanInterface(){
+						if fv.Type() == TimeType{
+							v.SetKeyCached(sfield.Name,VT_DateTime,cache).SetTime(fv.Interface().(time.Time))
+						}else if fv.Type() == TimePtrType{
+							v.SetKeyCached(sfield.Name,VT_DateTime,cache).SetTime(*(fv.Interface().(*time.Time)))
+						}else{
+							v.SetKeyvalue(sfield.Name,fv.Interface(),cache)
+						}
+					}
+				}
+			}
+		case reflect.Map:
+			mapkeys := reflectv.MapKeys()
+			if len(mapkeys) == 0{
+				return
+			}
+			kv := mapkeys[0]
+			if kv.Type().Kind() == reflect.Ptr{
+				kv = kv.Elem()
+			}
+			if kv.Kind() != reflect.String{
+				return
+			}
+			v.Reset(VT_Object)
+			cache := v.ValueCache()
+			for _,kv = range mapkeys{
+				rvalue := reflectv.MapIndex(kv)
+				if rvalue.Kind() == reflect.Ptr{
+					rvalue = rvalue.Elem()
+				}
+				switch rvalue.Kind() {
+				case reflect.Int,reflect.Int8,reflect.Int16,reflect.Int32,reflect.Int64,
+					reflect.Uint,reflect.Uint8,reflect.Uint16,reflect.Uint32,reflect.Uint64:
+					v.SetKeyCached(kv.String(),VT_Int,cache).SetInt(rvalue.Int())
+				case reflect.Bool:
+					if rvalue.Bool(){
+						v.SetKeyValue(kv.String(),valueTrue)
+					}else{
+						v.SetKeyValue(kv.String(),valueFalse)
+					}
+				case reflect.Float32:
+					v.SetKeyCached(kv.String(),VT_Double,cache).SetFloat(float32(rvalue.Float()))
+				case reflect.Float64:
+					v.SetKeyCached(kv.String(),VT_Double,cache).SetDouble(rvalue.Float())
+				case reflect.String:
+					v.SetKeyCached(kv.String(),VT_String,cache).SetString(rvalue.String())
+				default:
+					if rvalue.CanInterface(){
+						if rvalue.Type() == TimeType{
+							v.SetKeyCached(kv.String(),VT_DateTime,cache).SetTime(rvalue.Interface().(time.Time))
+						}else if rvalue.Type() == TimePtrType{
+							v.SetKeyCached(kv.String(),VT_DateTime,cache).SetTime(*(rvalue.Interface().(*time.Time)))
+						}else{
+							v.SetKeyvalue(kv.String(),rvalue.Interface(),cache)
+						}
+					}
+				}
+			}
+		}
+
+	}
+}
+
 func (v *DxValue)SetKeyvalue(Name string,value interface{},cache *ValueCache)  {
 	switch realv := value.(type) {
 	case int:
@@ -1126,8 +1347,15 @@ func (v *DxValue)SetKeyvalue(Name string,value interface{},cache *ValueCache)  {
 		}
 		switch reflectv.Kind(){
 		case reflect.Struct:
-			newv := v.SetKeyCached(Name,VT_Object,cache)
 			rtype := reflectv.Type()
+			if rtype == TimeType{
+				v.SetKeyCached(Name,VT_DateTime,cache).SetTime(reflectv.Interface().(time.Time))
+				return
+			}else if rtype == TimePtrType{
+				v.SetKeyCached(Name,VT_DateTime,cache).SetTime(*(reflectv.Interface().(*time.Time)))
+				return
+			}
+			newv := v.SetKeyCached(Name,VT_Object,cache)
 			for i := 0;i < rtype.NumField();i++{
 				sfield := rtype.Field(i)
 				fv := reflectv.Field(i)
@@ -1352,8 +1580,8 @@ func (v *DxValue)SetIndexvalue(idx int,value interface{},cache *ValueCache)  {
 		}
 		switch reflectv.Kind(){
 		case reflect.Struct:
-			newv := v.SetIndexCached(idx,VT_Object,cache)
 			rtype := reflectv.Type()
+			newv := v.SetIndexCached(idx,VT_Object,cache)
 			for i := 0;i < rtype.NumField();i++{
 				sfield := rtype.Field(i)
 				fv := reflectv.Field(i)

@@ -1120,6 +1120,30 @@ func (v *DxValue)SetValue(value interface{})  {
 		for key,objv := range *realv{
 			v.SetKeyCached(key,VT_Int,cache).SetInt(int64(objv))
 		}
+	case []interface{}:
+		v.Reset(VT_Array)
+		cache := v.ValueCache()
+		for i := 0;i<len(realv);i++{
+			v.SetIndexvalue(i,realv[i],cache)
+		}
+	case *[]interface{}:
+		v.Reset(VT_Array)
+		cache := v.ValueCache()
+		for i := 0;i<len(*realv);i++{
+			v.SetIndexvalue(i,(*realv)[i],cache)
+		}
+	case []string:
+		v.Reset(VT_Array)
+		cache := v.ValueCache()
+		for i := 0;i<len(realv);i++{
+			v.SetIndexCached(i,VT_String,cache).SetString(realv[i])
+		}
+	case *[]string:
+		v.Reset(VT_Array)
+		cache := v.ValueCache()
+		for i := 0;i<len(*realv);i++{
+			v.SetIndexCached(i,VT_String,cache).SetString((*realv)[i])
+		}
 	default:
 		//判断一下是否是结构体
 		reflectv := reflect.ValueOf(value)
@@ -1198,9 +1222,10 @@ func (v *DxValue)SetValue(value interface{})  {
 					rvalue = rvalue.Elem()
 				}
 				switch rvalue.Kind() {
-				case reflect.Int,reflect.Int8,reflect.Int16,reflect.Int32,reflect.Int64,
-					reflect.Uint,reflect.Uint8,reflect.Uint16,reflect.Uint32,reflect.Uint64:
+				case reflect.Int,reflect.Int8,reflect.Int16,reflect.Int32,reflect.Int64:
 					v.SetKeyCached(kv.String(),VT_Int,cache).SetInt(rvalue.Int())
+				case reflect.Uint,reflect.Uint8,reflect.Uint16,reflect.Uint32,reflect.Uint64:
+					v.SetKeyCached(kv.String(),VT_Int,cache).SetInt(int64(rvalue.Uint()))
 				case reflect.Bool:
 					if rvalue.Bool(){
 						v.SetKeyValue(kv.String(),valueTrue)
@@ -1223,6 +1248,19 @@ func (v *DxValue)SetValue(value interface{})  {
 							v.SetKeyvalue(kv.String(),rvalue.Interface(),cache)
 						}
 					}
+				}
+			}
+		case reflect.Slice:
+			v.Reset(VT_Array)
+			cache := v.ValueCache()
+			vlen := reflectv.Len()
+			for i := 0;i<vlen;i++{
+				av := reflectv.Index(i)
+				realvalue := getRealValue(&av)
+				if realvalue == nil{
+					v.SetIndexCached(i,VT_NULL,cache)
+				}else if realvalue.CanInterface(){
+					v.SetIndexvalue(i,realvalue.Interface(),cache)
 				}
 			}
 		}
@@ -1336,6 +1374,26 @@ func (v *DxValue)SetKeyvalue(Name string,value interface{},cache *ValueCache)  {
 		for key,objv := range *realv{
 			newv.SetKeyCached(key,VT_Int,cache).SetInt(int64(objv))
 		}
+	case []interface{}:
+		newv := v.SetKeyCached(Name,VT_Array,cache)
+		for i := 0;i<len(realv);i++{
+			newv.SetIndexvalue(i,realv[i],cache)
+		}
+	case *[]interface{}:
+		newv := v.SetKeyCached(Name,VT_Array,cache)
+		for i := 0;i<len(*realv);i++{
+			newv.SetIndexvalue(i,(*realv)[i],cache)
+		}
+	case []string:
+		newv := v.SetKeyCached(Name,VT_Array,cache)
+		for i := 0;i<len(realv);i++{
+			newv.SetIndexCached(i,VT_String,cache).SetString(realv[i])
+		}
+	case *[]string:
+		newv := v.SetKeyCached(Name,VT_Array,cache)
+		for i := 0;i<len(*realv);i++{
+			newv.SetIndexCached(i,VT_String,cache).SetString((*realv)[i])
+		}
 	default:
 		//判断一下是否是结构体
 		reflectv := reflect.ValueOf(value)
@@ -1403,9 +1461,10 @@ func (v *DxValue)SetKeyvalue(Name string,value interface{},cache *ValueCache)  {
 					rvalue = rvalue.Elem()
 				}
 				switch rvalue.Kind() {
-				case reflect.Int,reflect.Int8,reflect.Int16,reflect.Int32,reflect.Int64,
-					reflect.Uint,reflect.Uint8,reflect.Uint16,reflect.Uint32,reflect.Uint64:
+				case reflect.Int,reflect.Int8,reflect.Int16,reflect.Int32,reflect.Int64:
 					newv.SetKeyCached(kv.String(),VT_Int,cache).SetInt(rvalue.Int())
+				case reflect.Uint,reflect.Uint8,reflect.Uint16,reflect.Uint32,reflect.Uint64:
+					newv.SetKeyCached(kv.String(),VT_Int,cache).SetInt(int64(rvalue.Uint()))
 				case reflect.Bool:
 					if rvalue.Bool(){
 						newv.SetKeyValue(kv.String(),valueTrue)
@@ -1422,6 +1481,18 @@ func (v *DxValue)SetKeyvalue(Name string,value interface{},cache *ValueCache)  {
 					if rvalue.CanInterface(){
 						newv.SetKeyvalue(kv.String(),rvalue.Interface(),cache)
 					}
+				}
+			}
+		case reflect.Slice:
+			newv := v.SetKeyCached(Name,VT_Array,cache)
+			vlen := reflectv.Len()
+			for i := 0;i<vlen;i++{
+				av := reflectv.Index(i)
+				realvalue := getRealValue(&av)
+				if realvalue == nil{
+					newv.SetIndexCached(i,VT_NULL,cache)
+				}else if realvalue.CanInterface(){
+					newv.SetIndexvalue(i,realvalue.Interface(),cache)
 				}
 			}
 		}
@@ -1462,6 +1533,20 @@ func (v *DxValue)SetIndexValue(idx int,value *DxValue)  {
 	}
 }
 
+func getRealValue(v *reflect.Value)*reflect.Value  {
+	if !v.IsValid(){
+		return nil
+	}
+	if v.Kind() == reflect.Ptr{
+		if !v.IsNil(){
+			va := v.Elem()
+			return getRealValue(&va)
+		}else{
+			return nil
+		}
+	}
+	return v
+}
 
 func (v *DxValue)SetIndexvalue(idx int,value interface{},cache *ValueCache)  {
 	switch realv := value.(type) {
@@ -1500,7 +1585,7 @@ func (v *DxValue)SetIndexvalue(idx int,value interface{},cache *ValueCache)  {
 	case int64:
 		v.SetIndexCached(idx,VT_Int,cache).SetInt(realv)
 	case *int64:
-		v.SetIndexCached(idx,VT_Int,cache).SetInt(int64(*realv))
+		v.SetIndexCached(idx,VT_Int,cache).SetInt(*realv)
 	case uint64:
 		v.SetIndexCached(idx,VT_Int,cache).SetInt(int64(realv))
 	case *uint64:
@@ -1569,6 +1654,26 @@ func (v *DxValue)SetIndexvalue(idx int,value interface{},cache *ValueCache)  {
 		for key,objv := range *realv{
 			newv.SetKeyCached(key,VT_Int,cache).SetInt(int64(objv))
 		}
+	case []interface{}:
+		newv := v.SetIndexCached(idx,VT_Array,cache)
+		for i := 0;i<len(realv);i++{
+			newv.SetIndexvalue(i,realv[i],cache)
+		}
+	case *[]interface{}:
+		newv := v.SetIndexCached(idx,VT_Array,cache)
+		for i := 0;i<len(*realv);i++{
+			newv.SetIndexvalue(i,(*realv)[i],cache)
+		}
+	case []string:
+		newv := v.SetIndexCached(idx,VT_Array,cache)
+		for i := 0;i<len(realv);i++{
+			newv.SetIndexCached(i,VT_String,cache).SetString(realv[i])
+		}
+	case *[]string:
+		newv := v.SetIndexCached(idx,VT_Array,cache)
+		for i := 0;i<len(*realv);i++{
+			newv.SetIndexCached(i,VT_String,cache).SetString((*realv)[i])
+		}
 	default:
 		//判断一下是否是结构体
 		reflectv := reflect.ValueOf(value)
@@ -1629,9 +1734,10 @@ func (v *DxValue)SetIndexvalue(idx int,value interface{},cache *ValueCache)  {
 					rvalue = rvalue.Elem()
 				}
 				switch rvalue.Kind() {
-				case reflect.Int,reflect.Int8,reflect.Int16,reflect.Int32,reflect.Int64,
-					reflect.Uint,reflect.Uint8,reflect.Uint16,reflect.Uint32,reflect.Uint64:
+				case reflect.Int,reflect.Int8,reflect.Int16,reflect.Int32,reflect.Int64:
 					newv.SetKeyCached(kv.String(),VT_Int,cache).SetInt(rvalue.Int())
+				case reflect.Uint,reflect.Uint8,reflect.Uint16,reflect.Uint32,reflect.Uint64:
+					newv.SetKeyCached(kv.String(),VT_Int,cache).SetInt(int64(rvalue.Uint()))
 				case reflect.Bool:
 					if rvalue.Bool(){
 						newv.SetKeyValue(kv.String(),valueTrue)
@@ -1648,6 +1754,19 @@ func (v *DxValue)SetIndexvalue(idx int,value interface{},cache *ValueCache)  {
 					if rvalue.CanInterface(){
 						newv.SetKeyvalue(kv.String(),rvalue.Interface(),cache)
 					}
+				}
+			}
+		case reflect.Slice:
+			//数组的话
+			newarr := v.SetIndexCached(idx,VT_Array,cache)
+			vlen := reflectv.Len()
+			for i := 0;i<vlen;i++{
+				av := reflectv.Index(i)
+				realvalue := getRealValue(&av)
+				if realvalue == nil{
+					newarr.SetIndexCached(i,VT_NULL,cache)
+				}else if realvalue.CanInterface(){
+					newarr.SetIndexvalue(i,realvalue.Interface(),cache)
 				}
 			}
 		}

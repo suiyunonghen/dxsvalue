@@ -1028,9 +1028,6 @@ func (v *DxValue)SetKey(Name string,tp ValueType)*DxValue  {
 	return v.SetKeyCached(Name,tp,v.ownercache)
 }
 
-func (v *DxValue)SetDxValue(value *DxValue)  {
-
-}
 
 func (v *DxValue)SetValue(value interface{})  {
 	if v == valueNAN || v == valueINF || v == valueTrue || v == valueFalse || v == valueNull{
@@ -1080,9 +1077,9 @@ func (v *DxValue)SetValue(value interface{})  {
 	case string:
 		v.SetString(realv)
 	case *DxValue:
-		v.SetDxValue(realv)
+		v.CopyFrom(realv)
 	case DxValue:
-		v.SetDxValue(&realv)
+		v.CopyFrom(&realv)
 	case bool:
 		v.SetBool(realv)
 	case *bool:

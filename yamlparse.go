@@ -137,7 +137,7 @@ func (parser *yamlParser)parseArray(dataLine []byte,spaceCount int)error  {
 		}else{
 			k,v,hasKeySplit := parser.splitKv(dataLine)
 			if !hasKeySplit{ //不存在键值分隔符
-				parser.parseStringValue(currentValue,k)
+				parser.parseStringValue(currentValue,k,true)
 
 			}else{
 				if len(k) == 0{
@@ -153,7 +153,7 @@ func (parser *yamlParser)parseArray(dataLine []byte,spaceCount int)error  {
 					currentValue = currentValue.SetKeyCached(string(k),VT_NULL,parser.fparentCache)
 				}else{
 					currentValue = currentValue.SetKeyCached(string(k),VT_String,parser.fparentCache)
-					parser.parseStringValue(currentValue,v)
+					parser.parseStringValue(currentValue,v,true)
 				}
 				parser.fParsingValues = append(parser.fParsingValues,yamlNode{true,spaceCount,currentValue})
 
@@ -238,10 +238,6 @@ func (parser *yamlParser)parseObject(dataLine []byte,spaceCount int)error  {
 	}
 
 	key,value,hasKeySplit := parser.splitKv(dataLine)
-	if string(key) == "name"{
-		fmt.Println("asdf")
-	}
-
 
 	if lastIndex < 0{
 		if len(key) == 0 || !hasKeySplit{
@@ -256,7 +252,7 @@ func (parser *yamlParser)parseObject(dataLine []byte,spaceCount int)error  {
 		currentValue = currentValue.SetKeyCached(string(key),VT_String,parser.fparentCache)
 		parser.fParsingValues = append(parser.fParsingValues,yamlNode{false,spaceCount,currentValue})
 		//currentValue.SetString(string(value))
-		parser.parseStringValue(currentValue,value)
+		parser.parseStringValue(currentValue,value,true)
 	}else if spaceCount > lastSpaceCount{
 		//子集
 		if len(key) == 0{
@@ -278,15 +274,24 @@ func (parser *yamlParser)parseObject(dataLine []byte,spaceCount int)error  {
 			//判定一下是否是引用界定值
 			if value[0] != '&'{
 				if value[0] == '*'{ //引用其他值信息
-
+					usekey := DxCommonLib.FastByte2String(value[1:])
+					usecache := parser.getUseage(usekey)
+					if usecache != nil{
+						 newvalue := usecache.clone(parser.fparentCache)
+						 currentValue.SetKeyValue(vkey,newvalue)
+						 currentValue = newvalue
+					}else{
+						currentValue = currentValue.SetKeyCached(vkey,VT_String,parser.fparentCache)
+						currentValue.SetString(string(value))
+					}
 				}else{
 					currentValue = currentValue.SetKeyCached(vkey,VT_String,parser.fparentCache)
-					parser.parseStringValue(currentValue,value)
+					parser.parseStringValue(currentValue,value,true)
 				}
 			}else{
 				//引用的
 				currentValue = currentValue.SetKeyCached(vkey,VT_Object,parser.fparentCache)
-				parser.setCachedUseage(vkey,currentValue)
+				parser.setCachedUseage(string(value[1:]),currentValue)
 			}
 		}
 		parser.fParsingValues = append(parser.fParsingValues,yamlNode{false,spaceCount,currentValue})
@@ -300,7 +305,7 @@ func (parser *yamlParser)parseObject(dataLine []byte,spaceCount int)error  {
 		}else{
 			currentValue = currentValue.SetKeyCached(string(key),VT_String,parser.fparentCache)
 			//currentValue.SetString(string(value))
-			parser.parseStringValue(currentValue,value)
+			parser.parseStringValue(currentValue,value,true)
 		}
 		parser.fParsingValues = append(parser.fParsingValues,yamlNode{false,spaceCount,currentValue})
 	}
@@ -317,7 +322,7 @@ func (parser *yamlParser)splitKv(dataline []byte)(k,v []byte,bool2 bool)  {
 	return bytes.TrimFunc(dataline[:splitindex],spaceTrim),bytes.TrimFunc(dataline[splitindex+1:],spaceTrim),true
 }
 
-func (parser *yamlParser)parseStringValue(target *DxValue,vstr []byte)  {
+func (parser *yamlParser)parseStringValue(target *DxValue,vstr []byte,isfirst bool)  {
 	vlen := len(vstr)
 	if vlen == 4 && bytes.Compare(vstr,truebyte) == 0{
 		target.SetBool(true)
@@ -336,8 +341,39 @@ func (parser *yamlParser)parseStringValue(target *DxValue,vstr []byte)  {
 		//解析Json Map格式的串结构
 	}else if vstr[0] == '[' && vstr[vlen - 1] == ']'{
 		//解析Json Array格式的串结构
+	}else if vstr[0] == '&' {
+		//解析出数据
+		if !isfirst{
+			target.SetString(string(vstr))
+			return
+		}
+		spaceIndex := bytes.IndexByte(vstr,' ')
+		if spaceIndex > -1{
+			cacheKey := string(vstr[1:spaceIndex])
+			parser.setCachedUseage(cacheKey,target)
+			value := bytes.TrimFunc(vstr[spaceIndex+1:],spaceTrim)
+			if len(value) == 0{
+				target.SetString("")
+			}else{
+				parser.parseStringValue(target,value,false) //继续解析
+			}
+		}else {
+			target.SetString("")
+		}
+	}else if vstr[0] == '*' {
+		spaceIndex := bytes.IndexByte(vstr,' ')
+		cachekey := ""
+		if spaceIndex > -1{
+			cachekey = string(vstr[1:spaceIndex])
+		}else{
+			cachekey = string(vstr[1:])
+		}
+		if useage := parser.getUseage(cachekey);useage == nil{
+			target.SetString(string(vstr))
+		}else{
+			target.CopyFrom(useage)
+		}
 	}else{
-
 		target.SetString(string(vstr))
 	}
 }

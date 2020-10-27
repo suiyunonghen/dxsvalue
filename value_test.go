@@ -7,58 +7,6 @@ import (
 	"time"
 )
 
-var(
-	vtest = []byte(`
--
- - bb: 
-    gg: 32
-    mm: asdf
- - aa
- -
-  - cc
-  - dd   
-`)
-
-	vtestB = []byte(`
-- bb
-- aa
--
-  - cc
-  - dd
-`)
-	vtestC = []byte(`
-- bb
-- aa
-`)
-	vmap = []byte(`
-project:
-  port: 8080
-  name: &projectName epshealth-airobot-common
-
-jwt:
-  issuer: *projectName
-  secret: c2VybmFtZSI6InRlc3QiLCJleHAiOjE2MDA5MjE0MjEsImlzcyI6ImVwc2hlYWx0aCIsIm5iZiI6MTYwMDkxNDIyMX0
-  expires: 2h`)
-
-	vmaparr = []byte(`
-test:
-  - 33
-  - 44
-  - 55
-mm: sfasdf
-istel: true`)
-)
-
-func TestYaml(t *testing.T)  {
-	parser := newyamParser()
-	defer freeyamlParser(parser)
-	parser.fParsingValues = make([]yamlNode,0,10)
-	parser.parseData = vmaparr
-	parser.parse()
-	fmt.Println(parser.root.String())
-
-}
-
 func TestDxValue_ForcePath(t *testing.T) {
 	v := NewValueFrom(map[string]interface{}{
 		"Name":"不得闲",

@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/suiyunonghen/DxCommonLib"
+	"io/ioutil"
 	"math"
 	"sync"
 )
 
 func spaceTrim(r rune) bool {
-	return r == ' ' || r == '\n'
+	return r == ' ' || r == '\n' || r == '\r'
 }
 
 type yamlNode struct {
@@ -20,6 +21,7 @@ type yamlNode struct {
 
 type yamlParser struct {
 	ifFirstObjEle		bool				//是否是对象的第一个元素
+	lastOpifMerge		bool				//上一步操作是合并操作
 	lastSpaceCount		int
 	root				*DxValue
 	fparentCache		*ValueCache
@@ -51,6 +53,7 @@ func freeyamlParser(parser *yamlParser)  {
 
 func (parser *yamlParser)reset(data []byte)  {
 	parser.parseData = data
+	parser.root = nil
 	for i := 0;i<len(parser.fParsingValues);i++{
 		parser.fParsingValues[i].v = nil
 	}
@@ -178,6 +181,7 @@ func (parser *yamlParser)parseLine(lineData []byte,spaceCount int)error  {
 		return nil
 	}
 
+
 	isArray := dataLine[0] == '-'
 	lastIndex = len(parser.fParsingValues) - 1
 	lastSpaceCount := parser.lastSpaceCount
@@ -216,10 +220,36 @@ func (parser *yamlParser)parseLine(lineData []byte,spaceCount int)error  {
 	return err
 }
 
+func (parser *yamlParser)mergeObject(currentValue *DxValue,dataLine,key,value []byte)(bool,error)  {
+	merged := false
+	if len(key) == 2 && key[0] == '<' && key[1] == '<'{
+		if len(value) == 0{
+			return false,fmt.Errorf("无效的Yaml格式：%s",string(dataLine))
+		}
+		if value[0] == '*'{
+			cacheKey := ""
+			spaceindex := bytes.IndexByte(value,' ')
+			if spaceindex > -1{
+				cacheKey = DxCommonLib.FastByte2String(value[1:spaceindex])
+			}else{
+				cacheKey = DxCommonLib.FastByte2String(value[1:])
+			}
+			merged = cacheKey != ""
+			if merged{
+				useage := parser.getUseage(cacheKey)
+				merged = useage != nil && useage.DataType == VT_Object
+				if merged{
+					currentValue.AddFrom(useage)
+				}
+			}
+		}
+	}
+	return merged,nil
+}
+
 func (parser *yamlParser)parseObject(dataLine []byte,spaceCount int)error  {
 	var currentValue *DxValue
 	//非数组
-
 	lastIndex := len(parser.fParsingValues) - 1
 	lastSpaceCount := parser.lastSpaceCount
 	if lastIndex < 0{
@@ -249,10 +279,16 @@ func (parser *yamlParser)parseObject(dataLine []byte,spaceCount int)error  {
 		if len(key) == 0 || !hasKeySplit{
 			return fmt.Errorf("无效的Yaml格式：%s",string(dataLine))
 		}
-		currentValue = currentValue.SetKeyCached(string(key),VT_String,parser.fparentCache)
+		//判定一下key是否是需要归并的
+		merged,err := parser.mergeObject(currentValue,dataLine,key,value)
+		if err != nil{
+			return err
+		}
+		if !merged{
+			currentValue = currentValue.SetKeyCached(string(key),VT_String,parser.fparentCache)
+			parser.parseStringValue(currentValue,value,true)
+		}
 		parser.fParsingValues = append(parser.fParsingValues,yamlNode{false,spaceCount,currentValue})
-		//currentValue.SetString(string(value))
-		parser.parseStringValue(currentValue,value,true)
 	}else if spaceCount > lastSpaceCount{
 		//子集
 		if len(key) == 0{
@@ -267,6 +303,15 @@ func (parser *yamlParser)parseObject(dataLine []byte,spaceCount int)error  {
 		if currentValue.DataType != VT_Object{
 			currentValue.Reset(VT_Object)
 		}
+		merged,err := parser.mergeObject(currentValue,dataLine,key,value)
+		if err != nil{
+			return err
+		}
+		if merged{ //合并
+			parser.fParsingValues = append(parser.fParsingValues,yamlNode{false,spaceCount,currentValue})
+			return nil
+		}
+
 		vkey := string(key)
 		if len(value) == 0{
 			currentValue = currentValue.SetKeyCached(vkey,VT_Object,parser.fparentCache)
@@ -303,9 +348,15 @@ func (parser *yamlParser)parseObject(dataLine []byte,spaceCount int)error  {
 		if len(value) == 0{
 			currentValue = currentValue.SetKeyCached(string(key),VT_Object,parser.fparentCache)
 		}else{
-			currentValue = currentValue.SetKeyCached(string(key),VT_String,parser.fparentCache)
-			//currentValue.SetString(string(value))
-			parser.parseStringValue(currentValue,value,true)
+			merged,err := parser.mergeObject(currentValue,dataLine,key,value)
+			if err != nil{
+				return err
+			}
+			if !merged{ //合并
+				currentValue = currentValue.SetKeyCached(string(key),VT_String,parser.fparentCache)
+				//currentValue.SetString(string(value))
+				parser.parseStringValue(currentValue,value,true)
+			}
 		}
 		parser.fParsingValues = append(parser.fParsingValues,yamlNode{false,spaceCount,currentValue})
 	}
@@ -319,7 +370,14 @@ func (parser *yamlParser)splitKv(dataline []byte)(k,v []byte,bool2 bool)  {
 	if splitindex < 0{
 		return dataline,nil,false
 	}
-	return bytes.TrimFunc(dataline[:splitindex],spaceTrim),bytes.TrimFunc(dataline[splitindex+1:],spaceTrim),true
+	if splitindex < len(dataline) - 1{ //必须有一个空格才算是kV结构
+		if dataline[splitindex + 1] == ' '{
+			return bytes.TrimFunc(dataline[:splitindex],spaceTrim),bytes.TrimFunc(dataline[splitindex+2:],spaceTrim),true
+		}
+		return dataline,nil,false
+	}else{
+		return bytes.TrimFunc(dataline[:splitindex],spaceTrim),bytes.TrimFunc(dataline[splitindex+1:],spaceTrim),true
+	}
 }
 
 func (parser *yamlParser)parseStringValue(target *DxValue,vstr []byte,isfirst bool)  {
@@ -385,6 +443,7 @@ func (parser *yamlParser)parse()error  {
 	}
 	istart := 0
 	curLineEnd := 0
+	parser.lastOpifMerge = false
 	parser.lastSpaceCount = -1
 	for {
 		spaceCount := 0
@@ -421,4 +480,28 @@ func (parser *yamlParser)parse()error  {
 		}
 	}
 	return nil
+}
+
+func NewValueFromYaml(b []byte)(*DxValue,error)  {
+	parser := newyamParser()
+	parser.parseData = b
+	err := parser.parse()
+	if err != nil{
+		freeyamlParser(parser)
+		return nil, err
+	}
+	result := parser.root
+	freeyamlParser(parser)
+	return result,nil
+}
+
+func NewValueFromYamlFile(fileName string)(*DxValue,error)  {
+	databytes, err := ioutil.ReadFile(fileName)
+	if err != nil {
+		return nil,err
+	}
+	if len(databytes) > 2 && databytes[0] == 0xEF && databytes[1] == 0xBB && databytes[2] == 0xBF{//BOM
+		databytes = databytes[3:]
+	}
+	return NewValueFromYaml(databytes)
 }

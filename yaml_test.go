@@ -2,6 +2,7 @@ package dxsvalue
 
 import (
 	"fmt"
+	"io/ioutil"
 	"testing"
 )
 
@@ -54,16 +55,33 @@ defaults: &defaults
 development:
   database: myapp_development
   test: *defaults`)
+
+	vmapMerge = []byte(`
+defaults: &defaults
+  adapter:  postgres
+  host:     localhost
+
+development:
+  database: myapp_development
+  <<: *defaults
+test: 234
+<<: *defaults
+`)
 )
 
 func TestYamlParser(t *testing.T) {
 	parser := newyamParser()
 	defer freeyamlParser(parser)
-	parser.fParsingValues = make([]yamlNode,0,10)
-	parser.parseData = vmapAdv
+	parser.parseData = vmapMerge
 	err := parser.parse()
+	v := parser.root
 	fmt.Println(parser.root.String())
 	if err != nil{
 		fmt.Println("解析yaml发生错误：",err)
+		return
 	}
+	bt, _ := ioutil.ReadFile("./config.yml")
+	v.LoadFromYaml(bt)
+	fmt.Println(v.String())
 }
+

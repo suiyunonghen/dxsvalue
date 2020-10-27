@@ -287,6 +287,37 @@ func (v *DxValue)LoadFromJson(b []byte,sharebinary bool)error  {
 	return err
 }
 
+func (v *DxValue)LoadFromYaml(b []byte)error  {
+	v.Clear()
+	spacount := 0
+	for i := 0;i<len(b);i++{
+		if b[i] == ' ' || b[i] == '\r' || b[i] == '\n' || b[i] == '\t'{
+			spacount++
+			continue
+		}
+		break
+	}
+	b = b[spacount:]
+	if len(b) == 0{
+		return nil
+	}
+	if b[0] == '-'{
+		v.Reset(VT_Array)
+	}else{
+		v.Reset(VT_Object)
+	}
+
+	parser := newyamParser()
+	parser.parseData = b
+	parser.root = v
+	parser.fparentCache = v.ValueCache()
+	parser.fParsingValues = append(parser.fParsingValues,yamlNode{false,-1,v})
+	err := parser.parse()
+	freeyamlParser(parser)
+	return err
+}
+
+
 func (v *DxValue)Reset(dt ValueType)  {
 	if v == valueNAN || v == valueINF || v == valueTrue || v == valueFalse || v == valueNull{
 		return
@@ -524,6 +555,24 @@ func (v *DxValue)clone(c *ValueCache)*DxValue  {
 		}
 	}
 	return rootv
+}
+
+func (v *DxValue)AddFrom(fromv *DxValue)  {
+	switch fromv.DataType {
+	case VT_Object:
+		c := v.ownercache
+		v.fobject.keysUnescaped = fromv.fobject.keysUnescaped
+		for i := 0; i<len(fromv.fobject.strkvs);i++{
+			rkv := v.fobject.getKv()
+			rkv.K = fromv.fobject.strkvs[i].K
+			rkv.V = fromv.fobject.strkvs[i].V.clone(c)
+		}
+	case VT_Array:
+		c := v.ownercache
+		for i := 0;i < len(fromv.farr);i++{
+			v.farr = append(v.farr, fromv.farr[i].clone(c))
+		}
+	}
 }
 
 func (v *DxValue)CopyFrom(fromv *DxValue)  {

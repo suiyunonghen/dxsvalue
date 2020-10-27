@@ -7,4 +7,4 @@ require (
 	github.com/suiyunonghen/DxCommonLib v0.2.3
 )
 
-//replace github.com/suiyunonghen/DxCommonLib => /../DxCommonLib
+replace github.com/suiyunonghen/DxCommonLib => /../DxCommonLib

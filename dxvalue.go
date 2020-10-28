@@ -309,6 +309,7 @@ func (v *DxValue)LoadFromYaml(b []byte)error  {
 
 	parser := newyamParser()
 	parser.parseData = b
+	parser.usecache = false
 	parser.root = v
 	parser.fparentCache = v.ValueCache()
 	parser.fParsingValues = append(parser.fParsingValues,yamlNode{false,-1,v})

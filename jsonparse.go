@@ -75,6 +75,9 @@ func parseJsonObj(b []byte,c *ValueCache,sharebinary bool)(result *DxValue,tail 
 		}
 	}
 	result = c.getValue(VT_Object)
+	if c == nil{
+		c = result.ValueCache()
+	}
 	if b[0] == '}'{
 		tail = b[1:]
 		return
@@ -298,6 +301,9 @@ func parseJsonArray(b []byte,c *ValueCache,sharebinary bool)(result *DxValue,tai
 		return nil, oldb, err
 	}
 	result = c.getValue(VT_Array)
+	if c == nil{
+		c = result.ValueCache()
+	}
 	if b[0] == ']' {
 		return result, b[1:], nil
 	}

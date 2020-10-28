@@ -22,6 +22,7 @@ type yamlNode struct {
 type yamlParser struct {
 	ifFirstObjEle		bool				//是否是对象的第一个元素
 	lastOpifMerge		bool				//上一步操作是合并操作
+	usecache			bool
 	lastSpaceCount		int
 	root				*DxValue
 	fparentCache		*ValueCache
@@ -54,6 +55,7 @@ func freeyamlParser(parser *yamlParser)  {
 func (parser *yamlParser)reset(data []byte)  {
 	parser.parseData = data
 	parser.root = nil
+	parser.fparentCache = nil
 	for i := 0;i<len(parser.fParsingValues);i++{
 		parser.fParsingValues[i].v = nil
 	}
@@ -113,9 +115,14 @@ func (parser *yamlParser)parseArray(dataLine []byte,spaceCount int)error  {
 	}
 	lastIndex := len(parser.fParsingValues) - 1
 	if lastIndex < 0{
-		currentValue = NewArray(true)
+		if parser.usecache{
+			parser.fparentCache = getCache()
+			currentValue = parser.fparentCache.getValue(VT_Array)
+		}else{
+			currentValue = NewArray(true)
+			parser.fparentCache = currentValue.ValueCache()
+		}
 		parser.root = currentValue
-		parser.fparentCache = currentValue.ValueCache()
 		parser.fParsingValues = append(parser.fParsingValues,yamlNode{false,-1,currentValue})
 	}else{
 		currentValue = parser.fParsingValues[lastIndex].v
@@ -253,9 +260,14 @@ func (parser *yamlParser)parseObject(dataLine []byte,spaceCount int)error  {
 	lastIndex := len(parser.fParsingValues) - 1
 	lastSpaceCount := parser.lastSpaceCount
 	if lastIndex < 0{
-		currentValue = NewObject(true)
+		if parser.usecache{
+			parser.fparentCache = getCache()
+			currentValue = parser.fparentCache.getValue(VT_Object)
+		}else{
+			currentValue = NewObject(true)
+			parser.fparentCache = currentValue.ValueCache()
+		}
 		parser.root = currentValue
-		parser.fparentCache = currentValue.ValueCache()
 		parser.fParsingValues = append(parser.fParsingValues,yamlNode{false,-1,currentValue})
 	}else{
 		if parser.ifFirstObjEle && parser.fParsingValues[lastIndex].isMapArrayNode{ // - name: //这种数组和object集合的
@@ -482,9 +494,10 @@ func (parser *yamlParser)parse()error  {
 	return nil
 }
 
-func NewValueFromYaml(b []byte)(*DxValue,error)  {
+func NewValueFromYaml(b []byte,usecache bool)(*DxValue,error)  {
 	parser := newyamParser()
 	parser.parseData = b
+	parser.usecache = usecache
 	err := parser.parse()
 	if err != nil{
 		freeyamlParser(parser)
@@ -495,7 +508,7 @@ func NewValueFromYaml(b []byte)(*DxValue,error)  {
 	return result,nil
 }
 
-func NewValueFromYamlFile(fileName string)(*DxValue,error)  {
+func NewValueFromYamlFile(fileName string,usecache bool)(*DxValue,error)  {
 	databytes, err := ioutil.ReadFile(fileName)
 	if err != nil {
 		return nil,err
@@ -503,5 +516,5 @@ func NewValueFromYamlFile(fileName string)(*DxValue,error)  {
 	if len(databytes) > 2 && databytes[0] == 0xEF && databytes[1] == 0xBB && databytes[2] == 0xBF{//BOM
 		databytes = databytes[3:]
 	}
-	return NewValueFromYaml(databytes)
+	return NewValueFromYaml(databytes,usecache)
 }

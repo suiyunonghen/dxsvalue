@@ -80,6 +80,9 @@ func parseMsgPackObject(code MsgPackCode,b []byte,c *ValueCache,sharebinary bool
 	var key string
 	var value *DxValue
 	result = c.getValue(VT_Object)
+	if c == nil{
+		c = result.ValueCache()
+	}
 	for i := 0;i<maplen;i++{
 		code,b,err = readCode(b)
 		if err != nil{
@@ -118,6 +121,9 @@ func parseMsgPackArray(code MsgPackCode,b []byte,c *ValueCache,sharebinary bool)
 	}
 	var value *DxValue
 	result = c.getValue(VT_Array)
+	if c == nil{
+		c = result.ValueCache()
+	}
 	for i := 0;i<arrlen;i++{
 		value,b,err = parseMsgPackValue(b,c,sharebinary)
 		if err != nil{

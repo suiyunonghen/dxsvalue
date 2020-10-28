@@ -15,7 +15,13 @@ type	ValueCache struct {
 
 func (c *ValueCache)getValue(t ValueType)*DxValue  {
 	if c == nil{
-		return NewValue(t)
+		c = &ValueCache{
+			fisroot:	false,
+			Value:    make([]DxValue,0,8),
+		}
+		c.Value = append(c.Value, DxValue{DataType: t,
+			ownercache: c,})
+		return &c.Value[len(c.Value)-1]
 	}
 	if cap(c.Value) > len(c.Value) {
 		c.Value = c.Value[:len(c.Value)+1]

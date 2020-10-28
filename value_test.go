@@ -38,7 +38,7 @@ func TestDxValue_ForcePath(t *testing.T) {
 
 func TestParseJsonValue(t *testing.T) {
 	str := `{"Result":0,"Name":"不得闲","Age":36,"Weight":167.3,"arr":[ {"gg":23},23 ]}`
-	v,err := NewValueFromJson([]byte(str),true,false)
+	v,err := NewValueFromJson([]byte(str),false,false)
 	if err != nil{
 		fmt.Println("发生错误：",err)
 	}
@@ -55,7 +55,6 @@ func TestParseJsonValue(t *testing.T) {
 	bt := make([]byte,0,1024)
 	fmt.Println(string(formatValue(v,JSE_OnlyAnsiChar,false,bt,0)))
 	FreeValue(v)
-
 }
 
 func TestNewValue(t *testing.T) {

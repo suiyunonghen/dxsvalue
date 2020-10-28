@@ -67,12 +67,22 @@ development:
 test: 234
 <<: *defaults
 `)
+	vmaptest = []byte(`
+languages:
+ - Ruby
+ - Perl
+ - Python 
+websites:
+ YAML: yaml.org 
+ Ruby: ruby-lang.org 
+ Python: python.org 
+ Perl: use.perl.org `)
 )
 
 func TestYamlParser(t *testing.T) {
 	parser := newyamParser()
 	defer freeyamlParser(parser)
-	parser.parseData = vmapMerge
+	parser.parseData = vmaptest
 	err := parser.parse()
 	v := parser.root
 	fmt.Println(parser.root.String())
@@ -83,5 +93,15 @@ func TestYamlParser(t *testing.T) {
 	bt, _ := ioutil.ReadFile("./config.yml")
 	v.LoadFromYaml(bt)
 	fmt.Println(v.String())
+}
+
+func TestNewValueFromYaml(t *testing.T) {
+	value,err := NewValueFromYaml(vmaptest,true)
+	if err != nil{
+		fmt.Println("发生错误：",err)
+		return
+	}
+	fmt.Println(value.String())
+	FreeValue(value)
 }
 

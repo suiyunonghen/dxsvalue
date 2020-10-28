@@ -30,6 +30,7 @@ const(
 	VT_INF
 )
 
+
 type  strkv struct {
 	K			string
 	V			*DxValue
@@ -141,6 +142,7 @@ func (obj *VObject)UnEscapestrs()  {
 
 type	DxValue struct {
 	DataType	ValueType
+	ExtType		uint8		//扩展类型，如果是0表示无扩展类型，否则就根据实际情况来
 	fobject		VObject
 	ownercache	*ValueCache
 	simpleV		[8]byte
@@ -324,6 +326,7 @@ func (v *DxValue)Reset(dt ValueType)  {
 		return
 	}
 	v.DataType = dt
+	v.ExtType = 0
 	v.fobject.keysUnescaped = false
 	switch dt {
 	case VT_Object:

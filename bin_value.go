@@ -7,7 +7,7 @@ import (
 
 //msgpack的二进制类型
 
-func (v *DxValue)ExtType()byte{
+func (v *DxValue)BinExtType()byte{
 	if v.DataType == VT_ExBinary && len(v.fbinary) > 0{
 		return v.fbinary[0]
 	}

@@ -32,6 +32,7 @@ func parseBsonDocument(b []byte,c *ValueCache,sharebinary bool,documentValue *Dx
 	}
 	parseIndex = 4
 	var element *DxValue
+	var keyName string
 	//读取文档体，由一个个的元素组成
 	//每个元素为一个类型+字段名+值组成
 	for parseIndex < docLen{
@@ -44,7 +45,12 @@ func parseBsonDocument(b []byte,c *ValueCache,sharebinary bool,documentValue *Dx
 			return docLen,parseIndex,ErrInvalidBSON
 		}
 		keyEnd = parseIndex+keyEnd
-		keyName,err := DxCommonLib.GBK2Utf8(b[parseIndex:keyEnd])
+		//UTF8
+		if sharebinary{
+			keyName = DxCommonLib.FastByte2String(b[parseIndex:keyEnd])
+		}else{
+			keyName = string(b[parseIndex:keyEnd])
+		}
 		parseIndex = keyEnd
 		if err != nil{
 			return docLen,parseIndex, ErrInvalidBSON
@@ -52,7 +58,7 @@ func parseBsonDocument(b []byte,c *ValueCache,sharebinary bool,documentValue *Dx
 		parseIndex++
 		switch btype {
 		case BSON_Array:
-			element = documentValue.SetKeyCached(string(keyName),VT_Array,c)
+			element = documentValue.SetKeyCached(keyName,VT_Array,c)
 			arraylen,parseIdx,err := parseBsonArray(b[parseIndex:],c,element,sharebinary)
 			if err == nil{
 				parseIndex += arraylen
@@ -60,7 +66,7 @@ func parseBsonDocument(b []byte,c *ValueCache,sharebinary bool,documentValue *Dx
 				return docLen,parseIndex + parseIdx,err
 			}
 		case BSON_EmbeddedDocument:
-			element = documentValue.SetKeyCached(string(keyName),VT_Object,c)
+			element = documentValue.SetKeyCached(keyName,VT_Object,c)
 			doclen,parseIdx,err := parseBsonDocument(b[parseIndex:],c,sharebinary,element)
 			if err == nil{
 				parseIndex += doclen
@@ -68,7 +74,7 @@ func parseBsonDocument(b []byte,c *ValueCache,sharebinary bool,documentValue *Dx
 				return docLen,parseIndex + parseIdx,err
 			}
 		default:
-			element = documentValue.SetKeyCached(string(keyName),VT_NULL,c)
+			element = documentValue.SetKeyCached(keyName,VT_NULL,c)
 			_,parseidx,err := parseValue(btype,b[parseIndex:],element,sharebinary)
 			if err == nil{
 				parseIndex += parseidx
@@ -92,6 +98,7 @@ func parseBsonArray(b []byte,c *ValueCache,value *DxValue,shareBinary bool)(docL
 		return docLen,0,ErrBadBSONDocLen
 	}
 	parseIndex = 4
+	keyName := ""
 	//读取元素
 	//每个元素为一个类型+字段名+值组成,字段名为数组的索引序号
 	var element *DxValue
@@ -104,12 +111,16 @@ func parseBsonArray(b []byte,c *ValueCache,value *DxValue,shareBinary bool)(docL
 			return docLen,parseIndex,ErrInvalidBSON
 		}
 		keyEnd = parseIndex+keyEnd
-		keyName,err := DxCommonLib.GBK2Utf8(b[parseIndex:keyEnd])
+		if shareBinary{
+			keyName = DxCommonLib.FastByte2String(b[parseIndex:keyEnd])
+		}else {
+			keyName = string(b[parseIndex:keyEnd])
+		}
 		parseIndex = keyEnd
 		if err != nil{
 			return docLen,parseIndex, ErrInvalidBSON
 		}
-		arridx := int(DxCommonLib.StrToIntDef(string(keyName),-1))
+		arridx := int(DxCommonLib.StrToIntDef(keyName,-1))
 		if arridx == -1{
 			return docLen,parseIndex,ErrInvalidArrayBsonIndex
 		}
@@ -159,10 +170,11 @@ func parseValue(btype BsonType, b []byte,value *DxValue,shareBinary bool)(valueL
 		parseIndex += 4
 		start := parseIndex
 		parseIndex += valueLen
+		//由于会多写一个字符串结束符0，所以，实际长度应该减去1
 		if shareBinary{
-			value.SetString(DxCommonLib.FastByte2String(b[start:parseIndex]))
+			value.SetString(DxCommonLib.FastByte2String(b[start:parseIndex - 1]))
 		}else{
-			value.SetString(string(b[start:parseIndex]))
+			value.SetString(string(b[start:parseIndex - 1]))
 		}
 	case BSON_Binary:
 		value.DataType = VT_ExBinary
@@ -187,7 +199,6 @@ func parseValue(btype BsonType, b []byte,value *DxValue,shareBinary bool)(valueL
 			value.ExtType = 0
 		}else{
 			//VT_ExBinary要将subType带上
-			b = b[parseIndex:]
 			valueLen ++
 		}
 		parseIndex += valueLen
@@ -271,6 +282,7 @@ func Value2Bson(v *DxValue, dst []byte)([]byte,error)  {
 
 func writeObjBsonValue(v *DxValue, dst []byte)([]byte,error)  {
 	v.fobject.UnEscapestrs()
+	var err error
 	//先留出文档长度
 	lenindex := len(dst)
 	dst = append(dst,0,0,0,0)
@@ -278,11 +290,13 @@ func writeObjBsonValue(v *DxValue, dst []byte)([]byte,error)  {
 		//写入文档元素
 		//类型
 		dst = writeBsonElementType(v.fobject.strkvs[i].V,dst)
-		//写入字段名
-		bt,err := DxCommonLib.GBKString(v.fobject.strkvs[i].K)
+		//写入字段名,Ansic模式
+		/*bt,err := DxCommonLib.GBKString(v.fobject.strkvs[i].K)
 		if err != nil{
 			return nil, err
-		}
+		}*/
+		//还是直接UTF8吧
+		bt := DxCommonLib.FastString2Byte(v.fobject.strkvs[i].K)
 		dst = append(dst,bt...)
 		dst = append(dst,0)
 		if v.fobject.strkvs[i].V == nil{
@@ -351,42 +365,68 @@ func writeArrayBsonValue(v *DxValue, dst []byte)([]byte,error)  {
 	return dst,nil
 }
 
+func putLittI32(i int32,dst []byte)[]byte  {
+	l := len(dst)
+	dst = append(dst,0,0,0,0)
+	binary.LittleEndian.PutUint32(dst[l:],uint32(i))
+	return dst
+}
+
+func putLittI64(i int64,dst []byte)[]byte  {
+	l := len(dst)
+	dst = append(dst,0,0,0,0,0,0,0,0)
+	binary.LittleEndian.PutUint64(dst[l:],uint64(i))
+	return dst
+}
+
 func writeSimpleBsonValue(v *DxValue,dst []byte)[]byte  {
 	switch v.DataType {
 	case VT_String,VT_RawString:
 		//写入长度
 		vstr := DxCommonLib.FastString2Byte(v.String())
-		var btlen [4]byte
-		binary.LittleEndian.PutUint32(btlen[:],uint32(len(vstr)))
-		dst = append(dst,btlen[:4]...)
+		//加上一个字符结束空白
+		dst = putLittI32(int32(len(vstr)+1),dst)
 		//写入内容
 		dst = append(dst,vstr...)
+		//字符串结束
+		dst = append(dst,0)
 	case VT_Int:
-		var btvalue [8]byte
 		vint := v.Int()
 		if v.ExtType == uint8(BSON_Timestamp){
 			dst = append(dst,v.simpleV[:]...)
 		}else{
 			if vint < int64(math.MinInt32) || vint > int64(math.MaxInt32){
-				binary.LittleEndian.PutUint64(btvalue[:],uint64(vint))
-				dst = append(dst,btvalue[:]...)
+				dst = putLittI64(vint,dst)
 			}else{
-				binary.LittleEndian.PutUint32(btvalue[:],uint32(vint))
-				dst = append(dst,btvalue[:4]...)
+				dst = putLittI32(int32(vint),dst)
 			}
 		}
 	case VT_Float,VT_Double:
-		u64 := *(*uint64)(unsafe.Pointer(&v.simpleV[0]))
-		var btvalue [8]byte
-		binary.LittleEndian.PutUint64(btvalue[:],u64)
-		dst = append(dst,btvalue[:]...)
+		u64 := *(*int64)(unsafe.Pointer(&v.simpleV[0]))
+		dst = putLittI64(u64,dst)
 	case VT_DateTime:
-		unixMillisecond := uint64(v.GoTime().Sub(time.Date(1970,1,1,0,0,0,0,time.Local))/time.Millisecond)
-		var btvalue [8]byte
-		binary.LittleEndian.PutUint64(btvalue[:],unixMillisecond)
-		dst = append(dst,btvalue[:]...)
+		unixMillisecond := int64(v.GoTime().Sub(time.Date(1970,1,1,0,0,0,0,time.Local))/time.Millisecond)
+		dst = putLittI64(unixMillisecond,dst)
 	case VT_Binary:
+		//先写入长度
+		dst = putLittI32(int32(len(v.fbinary)),dst)
+		//写入subtype
+		dst = append(dst,uint8(BinaryGeneric)) //普通类型
+		//写入二进制
+		dst = append(dst,v.fbinary...)
 	case VT_ExBinary:
+		if v.ExtType == byte(BSON_Binary){
+			//实际长度需要减去一个子类型占据的位
+			dst = putLittI32(int32(len(v.fbinary)-1),dst)
+		}else{
+			//当普通二进制处理
+			//先写入长度
+			dst = putLittI32(int32(len(v.fbinary)),dst)
+			//写入subtype
+			dst = append(dst,uint8(BinaryGeneric)) //普通类型
+		}
+		//写入二进制
+		dst = append(dst,v.fbinary...)
 	case VT_True:
 		dst = append(dst,1)
 	case VT_False:

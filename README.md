@@ -1,8 +1,12 @@
 # DxValue
-万能值变量，其目的是将Json,MsgPack等编码类型都可以使用本库来进行操作处理，本来以前写了个DxValue，之后
-参考了一些其他的相关解码编码库，感觉不是很理想，所以本版本是重构之后的优化版本，之前将不同的类型值通过指针
-进行区分，对于某些使用操作不太统一方便，所以本次重写，全部使用一个结构代替，同时内部支持cache缓存创建，也
-便于回收
+万能值变量，其目的是将各种编码类型（目前已经支持了JSON,MsgPack,Yaml,BSON）都可以使用本库来进行操作处理，
+本来以前写了个DxValue，之后参考了一些其他的相关解码编码库，感觉不是很理想，所以本版本是重构之后的优化版本，
+之前将不同的类型值通过指针进行区分，对于某些使用操作不太统一方便，所以本次重写，全部使用一个结构代替，同时
+内部支持cache缓存创建，也便于回收，支持说明：
+- JSON完全支持
+- MsgPack完全支持
+- Yaml简要支持，目前支持嵌入，引用归并等，暂时不支持行内类Json格式解析
+- BSON基本上完全支持，对于一些特有编码类型的如minkey等未做支持
 
 ## 用法
 
@@ -60,6 +64,8 @@
 	}
     defer dxsvalue.FreeValue(v)
 ```
+除以上之外，还有NewValueFromBson,NewValueFromMsgPack,NewValueFromYaml，使用方法差不多
+
 
 3、获取值
 > DxValue可以使用String,Int,Bool,Float,DateTime,GoTime等来获取简单类型Value的相对

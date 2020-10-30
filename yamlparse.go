@@ -246,7 +246,7 @@ func (parser *yamlParser)mergeObject(currentValue *DxValue,dataLine,key,value []
 				useage := parser.getUseage(cacheKey)
 				merged = useage != nil && useage.DataType == VT_Object
 				if merged{
-					currentValue.AddFrom(useage)
+					currentValue.AddFrom(useage,parser.fparentCache)
 				}
 			}
 		}
@@ -441,7 +441,7 @@ func (parser *yamlParser)parseStringValue(target *DxValue,vstr []byte,isfirst bo
 		if useage := parser.getUseage(cachekey);useage == nil{
 			target.SetString(string(vstr))
 		}else{
-			target.CopyFrom(useage)
+			target.CopyFrom(useage,parser.fparentCache)
 		}
 	}else{
 		target.SetString(string(vstr))

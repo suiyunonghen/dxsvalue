@@ -588,10 +588,12 @@ func (v *DxValue)clone(c *ValueCache)*DxValue  {
 	return rootv
 }
 
-func (v *DxValue)AddFrom(fromv *DxValue)  {
+func (v *DxValue)AddFrom(fromv *DxValue,c *ValueCache)  {
 	switch fromv.DataType {
 	case VT_Object:
-		c := v.ownercache
+		if c == nil{
+			c = v.ownercache
+		}
 		v.fobject.keysUnescaped = fromv.fobject.keysUnescaped
 		for i := 0; i<len(fromv.fobject.strkvs);i++{
 			rkv := v.fobject.getKv()
@@ -606,11 +608,13 @@ func (v *DxValue)AddFrom(fromv *DxValue)  {
 	}
 }
 
-func (v *DxValue)CopyFrom(fromv *DxValue)  {
+func (v *DxValue)CopyFrom(fromv *DxValue,c *ValueCache)  {
 	v.Reset(fromv.DataType)
 	switch fromv.DataType {
 	case VT_Object:
-		c := v.ownercache
+		if c == nil{
+			c = v.ownercache
+		}
 		v.fobject.keysUnescaped = fromv.fobject.keysUnescaped
 		for i := 0; i<len(fromv.fobject.strkvs);i++{
 			rkv := v.fobject.getKv()
@@ -1157,9 +1161,9 @@ func (v *DxValue)SetValue(value interface{})  {
 	case string:
 		v.SetString(realv)
 	case *DxValue:
-		v.CopyFrom(realv)
+		v.CopyFrom(realv,nil)
 	case DxValue:
-		v.CopyFrom(&realv)
+		v.CopyFrom(&realv,nil)
 	case bool:
 		v.SetBool(realv)
 	case *bool:

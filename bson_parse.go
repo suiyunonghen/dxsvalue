@@ -277,12 +277,11 @@ func Value2Bson(v *DxValue, dst []byte)([]byte,error)  {
 	if v.DataType != VT_Object{
 		return nil,errors.New("只有Object可以转换")
 	}
-	return writeObjBsonValue(v,dst)
+	return writeObjBsonValue(v,dst),nil
 }
 
-func writeObjBsonValue(v *DxValue, dst []byte)([]byte,error)  {
+func writeObjBsonValue(v *DxValue, dst []byte)[]byte  {
 	v.fobject.UnEscapestrs()
-	var err error
 	//先留出文档长度
 	lenindex := len(dst)
 	dst = append(dst,0,0,0,0)
@@ -305,15 +304,9 @@ func writeObjBsonValue(v *DxValue, dst []byte)([]byte,error)  {
 		//写入value值
 		switch v.fobject.strkvs[i].V.DataType {
 		case VT_Object:
-			dst,err = writeObjBsonValue(v.fobject.strkvs[i].V,dst)
-			if err != nil{
-				return nil, err
-			}
+			dst = writeObjBsonValue(v.fobject.strkvs[i].V,dst)
 		case VT_Array:
-			dst,err = writeArrayBsonValue(v.fobject.strkvs[i].V,dst)
-			if err != nil{
-				return nil, err
-			}
+			dst = writeArrayBsonValue(v.fobject.strkvs[i].V,dst)
 		default:
 			dst = writeSimpleBsonValue(v.fobject.strkvs[i].V,dst)
 		}
@@ -322,14 +315,13 @@ func writeObjBsonValue(v *DxValue, dst []byte)([]byte,error)  {
 	totallen := len(dst) - lenindex
 	//写入实际的长度
 	binary.LittleEndian.PutUint32(dst[lenindex:],uint32(totallen))
-	return dst,nil
+	return dst
 }
 
-func writeArrayBsonValue(v *DxValue, dst []byte)([]byte,error)  {
+func writeArrayBsonValue(v *DxValue, dst []byte)[]byte  {
 	//先留出文档长度
 	lenindex := len(dst)
 	dst = append(dst,0,0,0,0)
-	var err error
 	for i := 0;i<len(v.farr);i++{
 		//写入文档元素
 		//类型
@@ -345,15 +337,9 @@ func writeArrayBsonValue(v *DxValue, dst []byte)([]byte,error)  {
 		//写入value值
 		switch v.farr[i].DataType {
 		case VT_Object:
-			dst,err = writeObjBsonValue(v.farr[i],dst)
-			if err != nil{
-				return nil, err
-			}
+			dst = writeObjBsonValue(v.farr[i],dst)
 		case VT_Array:
-			dst,err = writeArrayBsonValue(v.farr[i],dst)
-			if err != nil{
-				return nil, err
-			}
+			dst = writeArrayBsonValue(v.farr[i],dst)
 		default:
 			dst = writeSimpleBsonValue(v.farr[i],dst)
 		}
@@ -362,7 +348,7 @@ func writeArrayBsonValue(v *DxValue, dst []byte)([]byte,error)  {
 	totallen := len(dst) - lenindex
 	//写入实际的长度
 	binary.LittleEndian.PutUint32(dst[lenindex:],uint32(totallen))
-	return dst,nil
+	return dst
 }
 
 func putLittI32(i int32,dst []byte)[]byte  {

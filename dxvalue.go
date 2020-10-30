@@ -320,6 +320,11 @@ func (v *DxValue)LoadFromYaml(b []byte)error  {
 	return err
 }
 
+func (v *DxValue)LoadFromBson(b []byte,sharebinary bool)error  {
+	v.Clear()
+	_,_,err := parseBsonDocument(b,v.ownercache,sharebinary,v)
+	return  err
+}
 
 func (v *DxValue)Reset(dt ValueType)  {
 	if v == valueNAN || v == valueINF || v == valueTrue || v == valueFalse || v == valueNull{
@@ -384,6 +389,28 @@ func (v *DxValue)FloatByName(Key string,defv float32)float32  {
 
 func (v *DxValue)DoubleByName(Key string,defv float64)float64  {
 	return v.AsDouble(Key,defv)
+}
+
+func (v *DxValue)ToJson(format bool,escapeStyle JsonEscapeStyle,escapeDatetime bool,dst []byte)[]byte  {
+	if format{
+		return Value2FormatJson(v,escapeStyle,escapeDatetime,dst)
+	}
+	return Value2Json(v,escapeStyle,escapeDatetime,dst)
+}
+
+func (v *DxValue)ToMsgPack(dst []byte)[]byte  {
+	return Value2MsgPack(v,dst)
+}
+
+func (v *DxValue)ToBson(dst []byte)[]byte  {
+	switch v.DataType {
+	case VT_Object:
+		return writeObjBsonValue(v,dst)
+	case VT_Array:
+		return writeArrayBsonValue(v,dst)
+	default:
+		return writeSimpleBsonValue(v,dst)
+	}
 }
 
 type MergeOp byte

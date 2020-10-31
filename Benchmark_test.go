@@ -7,6 +7,39 @@ import (
 	"testing"
 )
 
+type MarshalTest struct {
+	Name		string
+	Age			int
+	Desp		string
+	Info		struct{
+		Name1		string
+		Name2		string
+		Age2		int
+	}
+}
+
+func BenchmarkJsonMa(b *testing.B)  {
+	b.Run("std", func(b *testing.B) {
+		b.ReportAllocs()
+		b.RunParallel(func(pb *testing.PB) {
+			var t MarshalTest
+			for pb.Next() {
+				json.Marshal(&t)
+			}
+		})
+	})
+
+	b.Run("DxValue", func(b *testing.B) {
+		b.ReportAllocs()
+		b.RunParallel(func(pb *testing.PB) {
+			var t MarshalTest
+			for pb.Next() {
+				Marshal(&t)
+			}
+		})
+	})
+}
+
 func BenchmarkJsonParse(b *testing.B) {
 	buf, err := ioutil.ReadFile("DataProxy.config.json")
 	if err != nil {

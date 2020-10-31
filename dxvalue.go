@@ -2,6 +2,7 @@ package dxsvalue
 
 import (
 	"bytes"
+	"encoding/json"
 	"github.com/suiyunonghen/DxCommonLib"
 	"math"
 	"reflect"
@@ -2008,3 +2009,30 @@ func (v *DxValue)Visit(f func(Key string,value *DxValue) bool)  {
 		}
 	}
 }
+
+
+
+func Marshal(v interface{}) ([]byte, error) {
+	switch value := v.(type) {
+	case DxValue:
+		return Value2Json(&value,JSE_AllEscape,true,make([]byte,0,128)),nil
+	case *DxValue:
+		return Value2Json(value,JSE_AllEscape,true,make([]byte,0,128)),nil
+	default:
+		return json.Marshal(v)
+	}
+}
+
+func Unmarshal(data []byte, v interface{}) error {
+	switch value := v.(type) {
+	case DxValue:
+		return value.LoadFromJson(data,false)
+	case *DxValue:
+		return value.LoadFromJson(data,false)
+	default:
+		return json.Unmarshal(data,v)
+	}
+}
+
+
+

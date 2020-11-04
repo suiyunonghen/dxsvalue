@@ -456,14 +456,19 @@ func writeBsonElementType(element *DxValue,dst []byte)[]byte  {
 	case VT_DateTime:
 		dst = append(dst,byte(BSON_DateTime))
 	case VT_Binary,VT_ExBinary:
-		switch element.ExtType {
+		if element.ExtType != 0{
+			dst = append(dst,element.ExtType)
+		}else{
+			dst = append(dst,byte(BSON_Binary))
+		}
+		/*switch element.ExtType {
 		case uint8(BSON_ObjectID):
 			dst = append(dst,byte(BSON_ObjectID))
 		case uint8(BSON_Decimal128):
 			dst = append(dst,byte(BSON_Decimal128))
 		default:
 			dst = append(dst,byte(BSON_Binary))
-		}
+		}*/
 	case VT_NULL:
 		dst = append(dst,byte(BSON_Null))
 	case VT_True,VT_False:

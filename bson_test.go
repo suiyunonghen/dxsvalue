@@ -8,7 +8,7 @@ import (
 )
 
 func TestNewValueFromBson(t *testing.T) {
-	bt,_ := ioutil.ReadFile("d:\\1.bson")
+	bt,_ := ioutil.ReadFile("d:\\bson.dat")
 	Value,err := NewValueFromBson(bt,true,true)
 	if err != nil{
 		fmt.Println(err)
@@ -21,6 +21,8 @@ func TestNewValueFromBson(t *testing.T) {
 		fmt.Println(err)
 		return
 	}
+
+
 	fmt.Println(len(dst))
 	NewValue,err := NewValueFromBson(dst,true,true)
 	ioutil.WriteFile("d:\\2.bson",dst, os.ModePerm)

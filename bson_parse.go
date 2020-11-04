@@ -394,12 +394,19 @@ func writeSimpleBsonValue(v *DxValue,dst []byte)[]byte  {
 		unixMillisecond := int64(v.GoTime().Sub(time.Date(1970,1,1,0,0,0,0,time.Local))/time.Millisecond)
 		dst = putLittI64(unixMillisecond,dst)
 	case VT_Binary:
-		//先写入长度
-		dst = putLittI32(int32(len(v.fbinary)),dst)
-		//写入subtype
-		dst = append(dst,uint8(BinaryGeneric)) //普通类型
-		//写入二进制
-		dst = append(dst,v.fbinary...)
+		switch v.ExtType {
+		case uint8(BSON_ObjectID):
+			dst = append(dst,v.fbinary[:12]...)
+		case uint8(BSON_Decimal128):
+			dst = append(dst,v.fbinary[:16]...)
+		default:
+			//先写入长度
+			dst = putLittI32(int32(len(v.fbinary)),dst)
+			//写入subtype
+			dst = append(dst,uint8(BinaryGeneric)) //普通类型
+			//写入二进制
+			dst = append(dst,v.fbinary...)
+		}
 	case VT_ExBinary:
 		if v.ExtType == byte(BSON_Binary){
 			//实际长度需要减去一个子类型占据的位
@@ -449,7 +456,14 @@ func writeBsonElementType(element *DxValue,dst []byte)[]byte  {
 	case VT_DateTime:
 		dst = append(dst,byte(BSON_DateTime))
 	case VT_Binary,VT_ExBinary:
-		dst = append(dst,byte(BSON_Binary))
+		switch element.ExtType {
+		case uint8(BSON_ObjectID):
+			dst = append(dst,byte(BSON_ObjectID))
+		case uint8(BSON_Decimal128):
+			dst = append(dst,byte(BSON_Decimal128))
+		default:
+			dst = append(dst,byte(BSON_Binary))
+		}
 	case VT_NULL:
 		dst = append(dst,byte(BSON_Null))
 	case VT_True,VT_False:

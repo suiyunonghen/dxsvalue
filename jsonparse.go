@@ -770,6 +770,21 @@ func formatValue(v *DxValue,escapeStyle JsonEscapeStyle,escapeDatetime bool, dst
 		dst = append(dst,'\r','\n')
 		formatSpace(level)
 		dst = append(dst,'}')
+	case VT_Binary:
+		switch v.ExtType {
+		case uint8(BSON_ObjectID):
+			dst = append(dst,`{"$oid":"`...)
+			dst = append(dst,DxCommonLib.Bin2Hex(v.fbinary[:12])...)
+			dst = append(dst,'"','}')
+		case uint8(BSON_Decimal128):
+			dst = append(dst,`{"Decimal128":"`...)
+			dst = append(dst,DxCommonLib.Bin2Hex(v.fbinary[:16])...)
+			dst = append(dst,'"','}')
+		default:
+			dst = append(dst,"Bin("...)
+			dst = append(dst,DxCommonLib.Bin2Hex(v.fbinary[:12])...)
+			dst = append(dst,')')
+		}
 	case VT_String:
 		dst = append(dst,'"')
 		if escapeStyle == JSE_NoEscape {

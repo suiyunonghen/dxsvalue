@@ -743,6 +743,28 @@ func (v *DxValue)String()string  {
 		return v.fstrvalue
 	case VT_NULL:
 		return "null"
+	case VT_Binary:
+		var dst []byte
+		switch v.ExtType {
+		case uint8(BSON_ObjectID):
+			dst = make([]byte,0,48)
+			dst = append(dst,`{"$oid":"`...)
+			dst = append(dst,DxCommonLib.Bin2Hex(v.fbinary[:12])...)
+			dst = append(dst,'"','}')
+
+		case uint8(BSON_Decimal128):
+			dst = make([]byte,0,48)
+			dst = append(dst,`{"Decimal128":"`...)
+			dst = append(dst,DxCommonLib.Bin2Hex(v.fbinary[:16])...)
+			dst = append(dst,'"','}')
+		default:
+			dst = make([]byte,0,128)
+			dst = append(dst,"Bin("...)
+			dst = append(dst,DxCommonLib.Bin2Hex(v.fbinary[:12])...)
+			dst = append(dst,')')
+		}
+		return DxCommonLib.FastByte2String(dst)
+	case VT_ExBinary:
 	case VT_RawString:
 		v.DataType = VT_String
 		v.fstrvalue = DxCommonLib.ParserEscapeStr(DxCommonLib.FastString2Byte(v.fstrvalue))

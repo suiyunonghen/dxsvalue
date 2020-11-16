@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/suiyunonghen/DxCommonLib"
 	"io/ioutil"
-	"math"
 	"sync"
 )
 
@@ -133,9 +132,9 @@ func (parser *yamlParser)parseArray(dataLine []byte,spaceCount int)error  {
 	}
 	if currentValue.DataType == VT_Array{
 		if isvalue{
-			currentValue = currentValue.SetIndexCached(math.MaxInt64,VT_String,parser.fparentCache)
+			currentValue = currentValue.SetIndexCached(-1,VT_String,parser.fparentCache)
 		}else{
-			currentValue = currentValue.SetIndexCached(math.MaxInt64,VT_Array,parser.fparentCache)
+			currentValue = currentValue.SetIndexCached(-1,VT_Array,parser.fparentCache)
 		}
 		parser.fParsingValues = append(parser.fParsingValues,yamlNode{false,spaceCount,currentValue})
 	}else{

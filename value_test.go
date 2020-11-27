@@ -82,7 +82,7 @@ type People struct {
 	Age			int
 	Weight		float32
 	IsMen		bool
-	Children	struct{
+	Children	[]struct{
 		Name	string
 		Sex		bool
 		Age		int
@@ -105,9 +105,11 @@ func TestDxValue_ToStdValue(t *testing.T) {
 	p := People{Name:`{"DxSoft":"gg"}`,Age:20,Weight:23.24,IsMen:true}
 	var p2 People
 	value := NewValueFrom(p,true)
-	fmt.Println(value.String())
-	chldValue := value.SetKeyCached("children",VT_Object,value.ValueCache())
+	//fmt.Println(value.String())
+	chldValue := value.SetKeyCached("Children",VT_Array,value.ValueCache())
+	chldValue = chldValue.SetIndexCached(-1,VT_Object,value.ValueCache())
 	chldValue.SetKeyCached("name",VT_String,value.ValueCache()).SetString("子节点")
+	fmt.Println(value.String())
 	value.ToStdValue(&p2,true)
 	fmt.Println(p2)
 }

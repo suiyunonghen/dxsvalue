@@ -2169,11 +2169,14 @@ func (v *DxValue)ToStdValue(destv interface{},ignoreCase bool)bool  {
 		}
 		reflectv = reflectv.Elem()
 		valueType := reflectv.Type()
-		if valueType.Kind() != reflect.Struct{
+		switch valueType.Kind() {
+		case reflect.Struct:
+			decode2reflectFromdxValue(reflectv,v,ignoreCase,valueType)
+		case reflect.Slice:
+			decodeArray2reflect(reflectv,v,ignoreCase)
+		default:
 			return false
 		}
-		decode2reflectFromdxValue(reflectv,v,ignoreCase,valueType)
-
 	}
 	return true
 }
@@ -2197,6 +2200,8 @@ func decode2reflectFromdxValue(fvalue reflect.Value,value *DxValue,ignoreCase bo
 					childreflectv.SetFloat(childvalue.Double())
 				case reflect.Bool:
 					childreflectv.SetBool(childvalue.Bool())
+				case reflect.Slice:
+					decodeArray2reflect(childreflectv,childvalue,ignoreCase)
 				case reflect.Struct:
 					if tp == TimeType {
 						childreflectv.Set(reflect.ValueOf(childvalue.GoTime()))
@@ -2209,6 +2214,112 @@ func decode2reflectFromdxValue(fvalue reflect.Value,value *DxValue,ignoreCase bo
 		}
 		return true
 	})
+}
+
+func growSliceValue(v reflect.Value, n int) reflect.Value {
+	diff := n - v.Len()
+	if diff > 256 {
+		diff = 256
+	}
+	v = reflect.AppendSlice(v, reflect.MakeSlice(v.Type(), diff, diff))
+	return v
+}
+
+func decodeArray2reflect(sliceValue reflect.Value,arrvalue *DxValue,ignoreCase bool)bool  {
+	if arrvalue.DataType != VT_Array{
+		return false
+	}
+	n := arrvalue.Count()
+	if n == 0{
+		return false
+	}
+	var vtype reflect.Type
+	if sliceValue.Cap() == 0{
+		vslice := reflect.MakeSlice(sliceValue.Type(), n, n)
+		sv := vslice.Index(0)
+		vtype = sv.Type()
+		sliceValue.Set(vslice.Slice(0, n))
+	}else if sliceValue.Cap() >= n {
+		vtype = sliceValue.Slice(1,1).Field(0).Type()
+		sliceValue.Set(sliceValue.Slice(0, n))
+	} else if sliceValue.Len() < sliceValue.Cap() {
+		vtype = sliceValue.Slice(1,1).Field(0).Type()
+		sliceValue.Set(sliceValue.Slice(0, sliceValue.Cap()))
+	}
+
+	if vtype == TimeType{
+		for i := 0;i<n;i++{
+			arrNode := arrvalue.ValueByIndex(i)
+			if i >= sliceValue.Len() {
+				sliceValue.Set(growSliceValue(sliceValue, n))
+			}
+			sliceValue.Field(i).Set(reflect.ValueOf(arrNode.GoTime()))
+		}
+		return true
+	}
+	switch vtype.Kind() {
+	case reflect.String:
+		for i := 0;i<n;i++{
+			arrNode := arrvalue.ValueByIndex(i)
+			if i >= sliceValue.Len() {
+				sliceValue.Set(growSliceValue(sliceValue, n))
+			}
+			sliceValue.Index(i).SetString(arrNode.String())
+		}
+	case reflect.Int,reflect.Int64,reflect.Int8,reflect.Int16,reflect.Int32:
+		for i := 0;i<n;i++{
+			arrNode := arrvalue.ValueByIndex(i)
+			if i >= sliceValue.Len() {
+				sliceValue.Set(growSliceValue(sliceValue, n))
+			}
+			sliceValue.Index(i).SetInt(arrNode.Int())
+		}
+	case reflect.Uint,reflect.Uint64,reflect.Uint8,reflect.Uint16,reflect.Uint32:
+		for i := 0;i<n;i++{
+			arrNode := arrvalue.ValueByIndex(i)
+			if i >= sliceValue.Len() {
+				sliceValue.Set(growSliceValue(sliceValue, n))
+			}
+			sliceValue.Index(i).SetUint(uint64(arrNode.Int()))
+		}
+	case reflect.Float32,reflect.Float64:
+		for i := 0;i<n;i++{
+			arrNode := arrvalue.ValueByIndex(i)
+			if i >= sliceValue.Len() {
+				sliceValue.Set(growSliceValue(sliceValue, n))
+			}
+			sliceValue.Index(i).SetFloat(arrNode.Double())
+		}
+	case reflect.Bool:
+		for i := 0;i<n;i++{
+			arrNode := arrvalue.ValueByIndex(i)
+			if i >= sliceValue.Len() {
+				sliceValue.Set(growSliceValue(sliceValue, n))
+			}
+			sliceValue.Index(i).SetBool(arrNode.Bool())
+		}
+	case reflect.Slice:
+		for i := 0;i<n;i++{
+			arrNode := arrvalue.ValueByIndex(i)
+			if i >= sliceValue.Len() {
+				sliceValue.Set(growSliceValue(sliceValue, n))
+			}
+			decodeArray2reflect(sliceValue.Index(i),arrNode,ignoreCase)
+		}
+	case reflect.Struct:
+		for i := 0;i<n;i++{
+			arrNode := arrvalue.ValueByIndex(i)
+			if i >= sliceValue.Len() {
+				sliceValue.Set(growSliceValue(sliceValue, n))
+			}
+
+			decode2reflectFromdxValue(sliceValue.Index(i),arrNode,ignoreCase,vtype)
+		}
+
+	default:
+		return false
+	}
+	return true
 }
 
 func Marshal(v interface{}) ([]byte, error) {

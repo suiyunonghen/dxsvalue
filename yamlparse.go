@@ -178,18 +178,20 @@ func (parser *yamlParser)parseLine(lineData []byte,spaceCount int)error  {
 		//注释，不做处理
 		return nil
 	}
-	lastIndex := bytes.IndexByte(dataLine,'#')
+
+	//yaml的注释不能出现在标量内,故暂时认为只能在开头
+	/*lastIndex := bytes.IndexByte(dataLine,'#')
 	if lastIndex > -1{ //去掉注释
 		dataLine = dataLine[:lastIndex]
 	}
 	if len(dataLine) == 0{
 		//注释不处理
 		return nil
-	}
+	}*/
 
 
 	isArray := dataLine[0] == '-'
-	lastIndex = len(parser.fParsingValues) - 1
+	lastIndex := len(parser.fParsingValues) - 1
 	lastSpaceCount := parser.lastSpaceCount
 	if parser.ifFirstObjEle && lastIndex >= 0{
 		if parser.fParsingValues[lastIndex].isMapArrayNode{ // - name: //这种数组和object集合的

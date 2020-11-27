@@ -82,6 +82,11 @@ type People struct {
 	Age			int
 	Weight		float32
 	IsMen		bool
+	Children	struct{
+		Name	string
+		Sex		bool
+		Age		int
+	}
 }
 
 func TestDxValue_SetKeyvalue(t *testing.T) {
@@ -92,7 +97,22 @@ func TestDxValue_SetKeyvalue(t *testing.T) {
 	fmt.Println(string(Value2Json(value,JSE_OnlyAnsiChar,false,nil)))
 	value.Clear()
 	value.SetKeyString("Name","DxSoft")
+
+	fmt.Println(value.String())
 }
+
+func TestDxValue_ToStdValue(t *testing.T) {
+	p := People{Name:`{"DxSoft":"gg"}`,Age:20,Weight:23.24,IsMen:true}
+	var p2 People
+	value := NewValueFrom(p,true)
+	fmt.Println(value.String())
+	chldValue := value.SetKeyCached("children",VT_Object,value.ValueCache())
+	chldValue.SetKeyCached("name",VT_String,value.ValueCache()).SetString("子节点")
+	value.ToStdValue(&p2,true)
+	fmt.Println(p2)
+}
+
+
 
 func TestNewValueFromMsgPack(t *testing.T) {
 	b,_ := ioutil.ReadFile(`DataProxy.config.msgPack`)

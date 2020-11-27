@@ -2032,7 +2032,184 @@ func (v *DxValue)Visit(f func(Key string,value *DxValue) bool)  {
 	}
 }
 
+//转换到标砖的数据
+func (v *DxValue)ToStdValue(destv interface{},ignoreCase bool)bool  {
+	switch value := destv.(type) {
+	case int,int8,int16,int32,int64,uint,uint8,uint16,uint32,uint64,[]byte,string:
+		return false
+	case *int8:
+		*value = int8(v.Int())
+	case *int:
+		*value = int(v.Int())
+	case *int16:
+		*value = int16(v.Int())
+	case *int32:
+		*value = int32(v.Int())
+	case *int64:
+		*value = v.Int()
+	case *uint8:
+		*value = uint8(v.Int())
+	case *uint:
+		*value = uint(v.Int())
+	case *uint16:
+		*value = uint16(v.Int())
+	case *uint32:
+		*value = uint32(v.Int())
+	case *uint64:
+		*value = uint64(v.Int())
+	case *string:
+		*value = v.String()
+	case *[]byte:
+		*value = v.Binary()
+	case *bool:
+		*value = v.Bool()
+	case *time.Time:
+		*value = v.GoTime()
+	case *float64:
+		*value = v.Double()
+	case *float32:
+		*value = v.Float()
+	case map[string]string:
+		if v.DataType != VT_Object{
+			return false
+		}
+		v.Visit(func(Key string, mapvalue *DxValue) bool {
+			value[Key] = mapvalue.String()
+			return true
+		})
+	case map[string]interface{}:
+		if v.DataType != VT_Object{
+			return false
+		}
+		v.Visit(func(Key string, mapvalue *DxValue) bool {
+			switch mapvalue.DataType {
+			case VT_Object:
+				newvalue := make(map[string]interface{},mapvalue.Count())
+				mapvalue.ToStdValue(newvalue,true)
+				value[Key] = newvalue
+			case VT_Array:
+				newvalue := make([]interface{},mapvalue.Count())
+				mapvalue.ToStdValue(newvalue,true)
+				value[Key] = newvalue
+			case VT_String,VT_RawString:
+				value[Key] = mapvalue.String()
+			case VT_Int:
+				value[Key] = mapvalue.Int()
+			case VT_DateTime:
+				value[Key] = mapvalue.GoTime()
+			case VT_Double:
+				value[Key] = mapvalue.Double()
+			case VT_Float:
+				value[Key] = mapvalue.Float()
+			case VT_Binary,VT_ExBinary:
+				value[Key] = mapvalue.Binary()
+			case VT_True:
+				value[Key] = true
+			case VT_False:
+				value[Key] = false
+			case VT_NULL:
+				value[Key] = nil
+			}
+			return true
+		})
+	case []interface{}:
+		if v.DataType != VT_Array{
+			return false
+		}
+		v.Visit(func(Key string, arrvalue *DxValue) bool {
+			switch arrvalue.DataType {
+			case VT_Object:
+				newvalue := make(map[string]interface{},arrvalue.Count())
+				arrvalue.ToStdValue(newvalue,true)
+				value = append(value,newvalue)
+			case VT_Array:
+				newvalue := make([]interface{},arrvalue.Count())
+				arrvalue.ToStdValue(newvalue,true)
+				value = append(value,newvalue)
+			case VT_String,VT_RawString:
+				value = append(value,arrvalue.String())
+			case VT_Int:
+				value = append(value,arrvalue.Int())
+			case VT_DateTime:
+				value = append(value,arrvalue.GoTime())
+			case VT_Double:
+				value = append(value,arrvalue.Double())
+			case VT_Float:
+				value = append(value,arrvalue.Float())
+			case VT_Binary,VT_ExBinary:
+				value = append(value,arrvalue.Binary())
+			case VT_True:
+				value = append(value,true)
+			case VT_False:
+				value = append(value,false)
+			case VT_NULL:
+				value = append(value,nil)
+			}
+			return true
+		})
+	case []string:
+		if v.DataType != VT_Array{
+			return false
+		}
+		v.Visit(func(Key string, arrvalue *DxValue) bool {
+			value = append(value,arrvalue.String())
+			return true
+		})
+	default:
+		//反射处理,只处理结构体
+		if v.DataType != VT_Object{
+			return false
+		}
+		reflectv := reflect.ValueOf(destv)
+		if !reflectv.IsValid(){
+			return false
+		}
+		if reflectv.Kind() != reflect.Ptr{
+			return false
+		}
+		reflectv = reflectv.Elem()
+		valueType := reflectv.Type()
+		if valueType.Kind() != reflect.Struct{
+			return false
+		}
+		decode2reflectFromdxValue(reflectv,v,ignoreCase,valueType)
 
+	}
+	return true
+}
+
+
+func decode2reflectFromdxValue(fvalue reflect.Value,value *DxValue,ignoreCase bool,valueType reflect.Type) {
+	value.Visit(func(Key string, childvalue *DxValue) bool {
+		for i := 0;i<valueType.NumField();i++{
+			fld := valueType.Field(i)
+			if ignoreCase && strings.EqualFold(Key,fld.Name) || Key == fld.Name{
+				childreflectv := fvalue.Field(i)
+				tp := fld.Type
+				switch tp.Kind() {
+				case reflect.String:
+					childreflectv.SetString(childvalue.String())
+				case reflect.Int,reflect.Int64,reflect.Int8,reflect.Int16,reflect.Int32:
+					childreflectv.SetInt(childvalue.Int())
+				case reflect.Uint,reflect.Uint64,reflect.Uint8,reflect.Uint16,reflect.Uint32:
+					childreflectv.SetUint(uint64(childvalue.Int()))
+				case reflect.Float32,reflect.Float64:
+					childreflectv.SetFloat(childvalue.Double())
+				case reflect.Bool:
+					childreflectv.SetBool(childvalue.Bool())
+				case reflect.Struct:
+					if tp == TimeType {
+						childreflectv.Set(reflect.ValueOf(childvalue.GoTime()))
+					}else{
+						decode2reflectFromdxValue(childreflectv,childvalue,ignoreCase,tp)
+					}
+				}
+				break
+			}
+		}
+		return true
+	})
+}
 
 func Marshal(v interface{}) ([]byte, error) {
 	switch value := v.(type) {

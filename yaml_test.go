@@ -105,6 +105,7 @@ func TestNewValueFromYaml(t *testing.T) {
 		return
 	}
 	fmt.Println(value.String())
+
 	FreeValue(value)
 }
 

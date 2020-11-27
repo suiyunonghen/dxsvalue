@@ -910,11 +910,11 @@ func (v *DxValue)SetBool(value bool)  {
 	if v.DataType >= VT_True{
 		return
 	}
-	if v.DataType >= VT_Int{
+	if v.DataType > VT_Array{
 		if value{
-			*((*int64)(unsafe.Pointer(&v.simpleV[0]))) = 1
+			v.Reset(VT_True)
 		}else{
-			*((*int64)(unsafe.Pointer(&v.simpleV[0]))) = 0
+			v.Reset(VT_False)
 		}
 	}
 }

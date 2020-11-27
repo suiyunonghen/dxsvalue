@@ -75,7 +75,7 @@ project:
   test: gg
   projectInfo:
     addr: 234
-    gg: sdfadf
+    gg: true
   newName:
     - *projectName
     - 234

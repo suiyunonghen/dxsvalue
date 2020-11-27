@@ -352,9 +352,24 @@ func (parser *yamlParser)parseObject(dataLine []byte,spaceCount int)error  {
 					parser.parseStringValue(currentValue,value,true)
 				}
 			}else{
-				//引用的
-				currentValue = currentValue.SetKeyCached(vkey,VT_Object,parser.fparentCache)
-				parser.setCachedUseage(string(value[1:]),currentValue)
+				//引用的，判定有没有空格，如果有空格的是字符串引用，否则就是对象引用
+				refKey := ""
+				isrefObject := true
+				spaceindex := bytes.IndexByte(value[1:],' ')
+				if spaceindex > 0{
+					refKey = string(value[1:spaceindex+1])
+					value = bytes.TrimFunc(value[spaceindex+1:],spaceTrim)
+					isrefObject = len(value) == 0
+				}else{
+					refKey = string(value[1:])
+				}
+				if isrefObject{
+					currentValue = currentValue.SetKeyCached(vkey,VT_Object,parser.fparentCache)
+				}else{
+					currentValue = currentValue.SetKeyCached(vkey,VT_String,parser.fparentCache)
+					parser.parseStringValue(currentValue,value,true)
+				}
+				parser.setCachedUseage(refKey,currentValue)
 			}
 		}
 		parser.fParsingValues = append(parser.fParsingValues,yamlNode{false,spaceCount,currentValue})

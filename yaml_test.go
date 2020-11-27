@@ -68,15 +68,18 @@ test: 234
 <<: *defaults
 `)
 	vmaptest = []byte(`
-languages:
- - Ruby
- - Perl
- - Python 
-websites:
- YAML: yaml.org#
- Ruby: ruby-lang.org 
- Python: python.org 
- Perl: use.perl.org `)
+project:
+  port: 8080
+  name: &projectName epshealth-airobot-common
+  fileurl: asdfasdf
+  test: gg
+  projectInfo:
+    addr: 234
+    gg: sdfadf
+  newName:
+    - *projectName
+    - 234
+`)
 )
 
 func TestYamlParser(t *testing.T) {

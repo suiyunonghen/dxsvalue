@@ -298,8 +298,13 @@ func (parser *yamlParser)parseObject(dataLine []byte,spaceCount int)error  {
 			return err
 		}
 		if !merged{
-			currentValue = currentValue.SetKeyCached(string(key),VT_String,parser.fparentCache)
-			parser.parseStringValue(currentValue,value,true)
+			if value != nil{
+				currentValue = currentValue.SetKeyCached(string(key),VT_String,parser.fparentCache)
+				parser.parseStringValue(currentValue,value,true)
+			}else{
+				//是一个新的对象
+				currentValue = currentValue.SetKeyCached(string(key),VT_Object,parser.fparentCache)
+			}
 		}
 		parser.fParsingValues = append(parser.fParsingValues,yamlNode{false,spaceCount,currentValue})
 	}else if spaceCount > lastSpaceCount{

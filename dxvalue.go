@@ -279,6 +279,9 @@ func NewCacheValue(tp ValueType)*DxValue  {
 
 func (v *DxValue)LoadFromMsgPack(b []byte,sharebinary bool)error  {
 	v.Clear()
+	if len(b) == 0{
+		return nil
+	}
 	_,err := parseMsgPack2Value(b,v,sharebinary)
 	return err
 }
@@ -286,6 +289,9 @@ func (v *DxValue)LoadFromMsgPack(b []byte,sharebinary bool)error  {
 func (v *DxValue)LoadFromJson(b []byte,sharebinary bool)error  {
 	v.Clear()
 	b,_ = skipWB(b)
+	if len(b) == 0{
+		return nil
+	}
 	_,err := parseJson2Value(b,v,sharebinary)
 	return err
 }
@@ -323,6 +329,9 @@ func (v *DxValue)LoadFromYaml(b []byte)error  {
 
 func (v *DxValue)LoadFromBson(b []byte,sharebinary bool)error  {
 	v.Clear()
+	if len(b) == 0{
+		return nil
+	}
 	_,_,err := parseBsonDocument(b,v.ownercache,sharebinary,v)
 	return  err
 }

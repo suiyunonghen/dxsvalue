@@ -65,6 +65,7 @@ func FreeValue(v *DxValue)  {
 	if v == nil{
 		return
 	}
+	v.Clear()
 	c := v.ownercache
 	v.ownercache = nil
 	if c!=nil{

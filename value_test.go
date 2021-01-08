@@ -3,6 +3,7 @@ package dxsvalue
 import (
 	"fmt"
 	"io/ioutil"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -89,6 +90,7 @@ type People struct {
 	}
 }
 
+
 func TestDxValue_SetKeyvalue(t *testing.T) {
 	value := NewObject(true)
 	p := People{Name:`{"DxSoft":"gg"}`,Age:20,Weight:23.24,IsMen:true}
@@ -99,6 +101,38 @@ func TestDxValue_SetKeyvalue(t *testing.T) {
 	value.SetKeyString("Name","DxSoft")
 
 	fmt.Println(value.String())
+}
+
+type StdType struct {
+	TimeOut		time.Duration
+	Age			string
+}
+
+func string2Duration(fvalue reflect.Value, value *DxValue) {
+	switch value.DataType {
+	case VT_Object:
+	case VT_Int:
+		fvalue.SetInt(value.Int())
+	case VT_String:
+		duration,err := time.ParseDuration(value.String())
+		if err == nil{
+			fvalue.SetInt(int64(duration))
+		}
+	}
+}
+
+func TestRegisterTypeMapFunc(t *testing.T) {
+	TimeDurationPtrType := reflect.TypeOf((*time.Duration)(nil))
+	TimeDurationType := TimeDurationPtrType.Elem()
+	RegisterTypeMapFunc(TimeDurationType, string2Duration)
+	RegisterTypeMapFunc(TimeDurationPtrType, string2Duration)
+
+	var b StdType
+	v := NewValue(VT_Object)
+	v.SetKeyString("TimeOut","1m32s")
+	v.SetKeyString("Age","32岁")
+	v.ToStdValue(&b,true)
+	fmt.Println(b)
 }
 
 func TestDxValue_ToStdValue(t *testing.T) {

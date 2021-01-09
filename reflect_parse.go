@@ -15,6 +15,10 @@ func decode2reflectFromdxValue(fvalue reflect.Value,value *DxValue,ignoreCase bo
 			if ignoreCase && strings.EqualFold(Key,fld.Name) || Key == fld.Name{
 				childreflectv := fvalue.Field(i)
 				tp := fld.Type
+				if tp.Implements(ValueUnMarshalerType){
+					childreflectv.Interface().(DxValueUnMarshaler).DecodeFromDxValue(childvalue)
+					break
+				}
 				vhandler,ok := structTypePool.Load(tp)
 				if ok && vhandler != nil{
 					convertHandler := vhandler.(StdValueFromDxValue)
@@ -79,6 +83,17 @@ func decodeArray2reflect(sliceValue reflect.Value,arrvalue *DxValue,ignoreCase b
 	} else if sliceValue.Len() < sliceValue.Cap() {
 		vtype = sliceValue.Slice(1,1).Field(0).Type()
 		sliceValue.Set(sliceValue.Slice(0, sliceValue.Cap()))
+	}
+
+	if vtype.Implements(ValueUnMarshalerType){
+		for i := 0;i<n;i++{
+			arrNode := arrvalue.ValueByIndex(i)
+			if i >= sliceValue.Len() {
+				sliceValue.Set(growSliceValue(sliceValue, n))
+			}
+			sliceValue.Field(i).Interface().(DxValueUnMarshaler).DecodeFromDxValue(arrNode)
+		}
+		return true
 	}
 
 	vhandler,ok := structTypePool.Load(vtype)
@@ -357,9 +372,12 @@ func (v *DxValue)SetValue(value interface{})  {
 					v.SetKeyCached(sfield.Name,VT_String,cache).SetString(fv.String())
 				default:
 					if fv.CanInterface(){
-						if fv.Type() == TimeType{
+						fvtp := fv.Type()
+						if fvtp.Implements(ValueMarshalerType){
+							fv.Interface().(DxValueMarshaler).EncodeToDxValue(v.SetKeyCached(sfield.Name,VT_Int,cache))
+						}else if fvtp == TimeType{
 							v.SetKeyCached(sfield.Name,VT_DateTime,cache).SetTime(fv.Interface().(time.Time))
-						}else if fv.Type() == TimePtrType{
+						}else if fvtp == TimePtrType{
 							v.SetKeyCached(sfield.Name,VT_DateTime,cache).SetTime(*(fv.Interface().(*time.Time)))
 						}else{
 							v.SetKeyvalue(sfield.Name,fv.Interface(),cache)
@@ -405,9 +423,12 @@ func (v *DxValue)SetValue(value interface{})  {
 					v.SetKeyCached(kv.String(),VT_String,cache).SetString(rvalue.String())
 				default:
 					if rvalue.CanInterface(){
-						if rvalue.Type() == TimeType{
+						rvType := rvalue.Type()
+						if rvType.Implements(ValueMarshalerType){
+							rvalue.Interface().(DxValueMarshaler).EncodeToDxValue(v.SetKeyCached(kv.String(),VT_Int,cache))
+						}else if rvType == TimeType{
 							v.SetKeyCached(kv.String(),VT_DateTime,cache).SetTime(rvalue.Interface().(time.Time))
-						}else if rvalue.Type() == TimePtrType{
+						}else if rvType == TimePtrType{
 							v.SetKeyCached(kv.String(),VT_DateTime,cache).SetTime(*(rvalue.Interface().(*time.Time)))
 						}else{
 							v.SetKeyvalue(kv.String(),rvalue.Interface(),cache)
@@ -1042,15 +1063,6 @@ func (v *DxValue)ToStdValue(destv interface{},ignoreCase bool)bool  {
 			return false
 		}
 		//反射处理,只处理结构体
-		vhandler,ok := structTypePool.Load(valueType)
-		if ok && vhandler != nil{
-			convertHandler := vhandler.(StdValueFromDxValue)
-			if convertHandler != nil{
-				convertHandler(reflectv,v)
-				return true
-			}
-		}
-
 		switch valueType.Kind() {
 		case reflect.Struct:
 			decode2reflectFromdxValue(reflectv,v,ignoreCase,valueType)

@@ -308,9 +308,16 @@ func (v *DxValue)SetValue(value interface{})  {
 		if !reflectv.IsValid(){
 			return
 		}
+		if reflectv.Type().Implements(ValueMarshalerType){
+			value.(DxValueMarshaler).EncodeToDxValue(v)
+			return
+		}
 		if reflectv.Kind() == reflect.Ptr{
 			reflectv = reflectv.Elem()
-		}
+		}/*else if reflect.PtrTo(reflectv.Type()).Implements(ValueMarshalerType){
+			value.(DxValueMarshaler).EncodeToDxValue(v)
+			return
+		}*/
 		switch reflectv.Kind(){
 		case reflect.Struct:
 			tp := reflectv.Type()
@@ -558,6 +565,10 @@ func (v *DxValue)SetKeyvalue(Name string,value interface{},cache *ValueCache)  {
 		if !reflectv.IsValid(){
 			return
 		}
+		if reflectv.Type().Implements(ValueMarshalerType){
+			value.(DxValueMarshaler).EncodeToDxValue(v.SetKeyCached(Name,VT_Int,cache))
+			return
+		}
 		if reflectv.Kind() == reflect.Ptr{
 			reflectv = reflectv.Elem()
 		}
@@ -790,12 +801,17 @@ func (v *DxValue)SetIndexvalue(idx int,value interface{},cache *ValueCache)  {
 		if !reflectv.IsValid(){
 			return
 		}
+		rtype := reflectv.Type()
+		if rtype.Implements(ValueMarshalerType){
+			value.(DxValueMarshaler).EncodeToDxValue(v.SetIndexCached(idx,VT_Int,cache))
+			return
+		}
 		if reflectv.Kind() == reflect.Ptr{
 			reflectv = reflectv.Elem()
+			rtype = reflectv.Type()
 		}
 		switch reflectv.Kind(){
 		case reflect.Struct:
-			rtype := reflectv.Type()
 			newv := v.SetIndexCached(idx,VT_Object,cache)
 			for i := 0;i < rtype.NumField();i++{
 				sfield := rtype.Field(i)
@@ -1008,10 +1024,6 @@ func (v *DxValue)ToStdValue(destv interface{},ignoreCase bool)bool  {
 			return true
 		})
 	default:
-		//反射处理,只处理结构体
-		if v.DataType != VT_Object{
-			return false
-		}
 		reflectv := reflect.ValueOf(destv)
 		if !reflectv.IsValid(){
 			return false
@@ -1019,9 +1031,17 @@ func (v *DxValue)ToStdValue(destv interface{},ignoreCase bool)bool  {
 		if reflectv.Kind() != reflect.Ptr{
 			return false
 		}
+		if reflectv.Type().Implements(ValueUnMarshalerType){
+			destv.(DxValueUnMarshaler).DecodeFromDxValue(v)
+			return true
+		}
 		reflectv = reflectv.Elem()
 		valueType := reflectv.Type()
 
+		if v.DataType != VT_Object{
+			return false
+		}
+		//反射处理,只处理结构体
 		vhandler,ok := structTypePool.Load(valueType)
 		if ok && vhandler != nil{
 			convertHandler := vhandler.(StdValueFromDxValue)

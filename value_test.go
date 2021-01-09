@@ -108,6 +108,23 @@ type StdType struct {
 	Age			string
 }
 
+func (tp StdType)EncodeToDxValue(dest *DxValue)  {
+	dest.Reset(VT_Object)
+	dest.SetKeyCached("TimeOut",VT_String,dest.ValueCache()).SetString("1h3m24s")
+	dest.SetKeyCached("Age",VT_String,dest.ValueCache()).SetString("3岁")
+}
+
+func (tp *StdType)DecodeFromDxValue(from *DxValue)  {
+	tp.Age = from.AsString("Age",tp.Age)
+	timeout := from.AsString("TimeOut","")
+	if timeout != ""{
+		duration,err := time.ParseDuration(timeout)
+		if err == nil{
+			tp.TimeOut = duration
+		}
+	}
+}
+
 func string2Duration(fvalue reflect.Value, value *DxValue) {
 	switch value.DataType {
 	case VT_Object:
@@ -133,6 +150,17 @@ func TestRegisterTypeMapFunc(t *testing.T) {
 	v.SetKeyString("Age","32岁")
 	v.ToStdValue(&b,true)
 	fmt.Println(b)
+}
+
+func TestDxValueConverter(t *testing.T)  {
+	var b StdType
+	v := NewValue(VT_Object)
+	v.SetKeyString("TimeOut","1m32s")
+	v.SetKeyString("Age","32岁")
+	v.ToStdValue(&b,true)
+	fmt.Println(b)
+	v.SetValue(&b)
+	fmt.Println(v.String())
 }
 
 func TestDxValue_ToStdValue(t *testing.T) {

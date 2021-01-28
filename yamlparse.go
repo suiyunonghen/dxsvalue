@@ -171,7 +171,9 @@ func (parser *yamlParser)parseArray(dataLine []byte,spaceCount int)error  {
 	}
 	return nil
 }
-
+var(
+	commetTag []byte = []byte{' ','#'}
+)
 func (parser *yamlParser)parseLine(lineData []byte,spaceCount int)error  {
 	dataLine := lineData[spaceCount:]
 	if dataLine[0] == '#'{
@@ -179,19 +181,19 @@ func (parser *yamlParser)parseLine(lineData []byte,spaceCount int)error  {
 		return nil
 	}
 
-	//yaml的注释不能出现在标量内,故暂时认为只能在开头
-	/*lastIndex := bytes.IndexByte(dataLine,'#')
-	if lastIndex > -1{ //去掉注释
+	//在中间出现了#注释，需要前面有一个空格，有空格的就认为后面是注释
+	lastIndex := bytes.Index(dataLine,commetTag)
+	if lastIndex > 1{
 		dataLine = dataLine[:lastIndex]
+		if len(dataLine) == 0{
+			//注释不处理
+			return nil
+		}
 	}
-	if len(dataLine) == 0{
-		//注释不处理
-		return nil
-	}*/
 
 
 	isArray := dataLine[0] == '-'
-	lastIndex := len(parser.fParsingValues) - 1
+	lastIndex = len(parser.fParsingValues) - 1
 	lastSpaceCount := parser.lastSpaceCount
 	if parser.ifFirstObjEle && lastIndex >= 0{
 		if parser.fParsingValues[lastIndex].isMapArrayNode{ // - name: //这种数组和object集合的

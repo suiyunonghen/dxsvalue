@@ -529,7 +529,7 @@ func (v *DxValue)Equal(value *DxValue)bool  {
 }
 
 func (v *DxValue)TimeByName(Key string,defv time.Time)time.Time  {
-	return v.AsDateTime(Key,DxCommonLib.Time2DelphiTime(defv)).ToTime()
+	return v.GoTimeByPath(defv,Key)
 }
 
 func (v *DxValue)Int()int64  {
@@ -952,17 +952,16 @@ func (v *DxValue)Duration(defaultv time.Duration)time.Duration  {
 	return defaultv
 }
 
-
 func (v *DxValue)DateTime()DxCommonLib.TDateTime  {
 	switch v.DataType {
 	case VT_Int,VT_Double,VT_Float,VT_DateTime:
 		return (DxCommonLib.TDateTime)(v.Double())
 	case VT_String,VT_RawString:
-		if t,err := time.Parse("2006-01-02T15:04:05Z",v.fstrvalue);err == nil{
+		if t,err := time.ParseInLocation("2006-01-02T15:04:05Z",v.fstrvalue,time.Local);err == nil{
 			return DxCommonLib.Time2DelphiTime(t)
-		}else if t,err = time.Parse("2006-01-02 15:04:05",v.fstrvalue);err == nil{
+		}else if t,err = time.ParseInLocation("2006-01-02 15:04:05",v.fstrvalue,time.Local);err == nil{
 			return DxCommonLib.Time2DelphiTime(t)
-		}else if t,err = time.Parse("2006/01/02 15:04:05",v.fstrvalue);err == nil{
+		}else if t,err = time.ParseInLocation("2006/01/02 15:04:05",v.fstrvalue,time.Local);err == nil{
 			return DxCommonLib.Time2DelphiTime(t)
 		}
 	}
@@ -974,11 +973,11 @@ func (v *DxValue)GoTime()time.Time  {
 	case VT_Int,VT_Float,VT_Double, VT_DateTime:
 		return (DxCommonLib.TDateTime)(v.Double()).ToTime()
 	case VT_String,VT_RawString:
-		if t,err := time.Parse("2006-01-02T15:04:05Z",v.fstrvalue);err == nil{
+		if t,err := time.ParseInLocation("2006-01-02T15:04:05Z",v.fstrvalue,time.Local);err == nil{
 			return t
-		}else if t,err = time.Parse("2006-01-02 15:04:05",v.fstrvalue);err == nil{
+		}else if t,err = time.ParseInLocation("2006-01-02 15:04:05",v.fstrvalue,time.Local);err == nil{
 			return t
-		}else if t,err = time.Parse("2006/01/02 15:04:05",v.fstrvalue);err == nil{
+		}else if t,err = time.ParseInLocation("2006/01/02 15:04:05",v.fstrvalue,time.Local);err == nil{
 			return t
 		}
 	}
@@ -1114,6 +1113,7 @@ func (v *DxValue)DateTimeByPath(DefaultValue DxCommonLib.TDateTime, paths ...str
 	}
 	return result.DateTime()
 }
+
 
 func (v *DxValue)GoTimeByPath(DefaultValue time.Time, paths ...string)time.Time  {
 	result := v.ValueByPath(paths...)

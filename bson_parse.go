@@ -52,9 +52,6 @@ func parseBsonDocument(b []byte,c *ValueCache,sharebinary bool,documentValue *Dx
 			keyName = string(b[parseIndex:keyEnd])
 		}
 		parseIndex = keyEnd
-		if err != nil{
-			return docLen,parseIndex, ErrInvalidBSON
-		}
 		parseIndex++
 		switch btype {
 		case BSON_Array:
@@ -225,7 +222,7 @@ func parseValue(btype BsonType, b []byte,value *DxValue,shareBinary bool)(valueL
 	case BSON_DateTime:
 		//Unix 纪元(1970 年 1 月 1 日)以来的毫秒数
 		vunix := time.Duration(binary.LittleEndian.Uint64(b[:8])) * time.Millisecond
-		value.SetTime(time.Date(1970,1,1,0,0,0,0,time.Local).Add(vunix))
+		value.SetTime(time.Date(1970,1,1,0,0,0,0,time.UTC).Add(vunix))
 		return 8,8,nil
 	case BSON_Null:
 		//啥都不干
@@ -391,7 +388,7 @@ func writeSimpleBsonValue(v *DxValue,dst []byte)[]byte  {
 		u64 := *(*int64)(unsafe.Pointer(&v.simpleV[0]))
 		dst = putLittI64(u64,dst)
 	case VT_DateTime:
-		unixMillisecond := int64(v.GoTime().Sub(time.Date(1970,1,1,0,0,0,0,time.Local))/time.Millisecond)
+		unixMillisecond := int64(v.GoTime().Sub(time.Date(1970,1,1,0,0,0,0,time.UTC))/time.Millisecond)
 		dst = putLittI64(unixMillisecond,dst)
 	case VT_Binary:
 		switch v.ExtType {

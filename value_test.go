@@ -279,4 +279,6 @@ func TestDxValue_AsDateTime(t *testing.T) {
 		fmt.Println(recv.String())
 	}
 
+	rev,_ := NewValueFromMsgPackFile("d:/1.bin",true)
+	fmt.Println(rev.String())
 }

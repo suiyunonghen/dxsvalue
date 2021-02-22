@@ -3,7 +3,6 @@ package dxsvalue
 import (
 	"encoding/json"
 	jsoniter "github.com/json-iterator/go"
-	"io/ioutil"
 	"testing"
 )
 
@@ -41,7 +40,7 @@ func BenchmarkJsonMa(b *testing.B)  {
 }
 
 func BenchmarkJsonParse(b *testing.B) {
-	buf, err := ioutil.ReadFile("DataProxy.config.json")
+	buf, err := ReadFile("DataProxy.config.json")
 	if err != nil {
 		return
 	}
@@ -91,7 +90,7 @@ func BenchmarkJsonParse(b *testing.B) {
 }
 
 func BenchmarkMsgPackParse(b *testing.B) {
-	buf, err := ioutil.ReadFile("DataProxy.config.msgPack")
+	buf, err := ReadFile("DataProxy.config.msgPack")
 	if err != nil {
 		return
 	}

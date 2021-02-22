@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/suiyunonghen/DxCommonLib"
-	"io/ioutil"
 	"os"
 	"strconv"
 )
@@ -840,7 +839,7 @@ func formatValue(v *DxValue,escapeStyle JsonEscapeStyle,escapeDatetime bool, dst
 }
 
 func NewValueFromJsonFile(fileName string,usecache bool)(*DxValue,error)  {
-	databytes, err := ioutil.ReadFile(fileName)
+	databytes, err := ReadFile(fileName)
 	if err != nil {
 		return nil,err
 	}

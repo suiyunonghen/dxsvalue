@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/suiyunonghen/DxCommonLib"
-	"io/ioutil"
 	"sync"
 )
 
@@ -532,7 +531,7 @@ func NewValueFromYaml(b []byte,usecache bool)(*DxValue,error)  {
 }
 
 func NewValueFromYamlFile(fileName string,usecache bool)(*DxValue,error)  {
-	databytes, err := ioutil.ReadFile(fileName)
+	databytes, err := ReadFile(fileName)
 	if err != nil {
 		return nil,err
 	}

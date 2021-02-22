@@ -1,7 +1,6 @@
 package dxsvalue
 
 import (
-	"io/ioutil"
 	"os"
 )
 
@@ -96,7 +95,7 @@ func (v *DxValue)SaveBinaryToFile(fileName string)error  {
 
 func (v *DxValue)SetBinaryFromFile(fileName string)error  {
 	if v.DataType == VT_Binary || v.DataType == VT_ExBinary{
-		b,err := ioutil.ReadFile(fileName)
+		b,err := ReadFile(fileName)
 		if err != nil{
 			return err
 		}

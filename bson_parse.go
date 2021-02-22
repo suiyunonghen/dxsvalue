@@ -271,10 +271,14 @@ func NewValueFromBson(b []byte,useCache bool,sharebinary bool)(*DxValue,error)  
 
 
 func Value2Bson(v *DxValue, dst []byte)([]byte,error)  {
-	if v.DataType != VT_Object{
-		return nil,errors.New("只有Object可以转换")
+	switch v.DataType{
+	case VT_Object:
+		return writeObjBsonValue(v,dst),nil
+	case VT_Array:
+		return writeArrayBsonValue(v,dst),nil
+	default:
+		return nil,errors.New("unSupport Bson ValueType")
 	}
-	return writeObjBsonValue(v,dst),nil
 }
 
 func writeObjBsonValue(v *DxValue, dst []byte)[]byte  {

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/suiyunonghen/DxCommonLib"
-	"io/ioutil"
 	"math"
 	"time"
 	"unsafe"
@@ -500,7 +499,7 @@ func NewValueFromMsgPack(b []byte,useCache bool,sharebinary bool)(*DxValue,error
 }
 
 func NewValueFromMsgPackFile(fileName string,usecache bool)(*DxValue,error)  {
-	databytes, err := ioutil.ReadFile(fileName)
+	databytes, err := ReadFile(fileName)
 	if err != nil {
 		return nil,err
 	}
